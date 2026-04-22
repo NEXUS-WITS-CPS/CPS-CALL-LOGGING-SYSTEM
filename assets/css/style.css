@@ -1,0 +1,156 @@
+/* =====================
+   GLOBAL STYLES
+===================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5f5;
+  color: #333333;
+}
+
+/* =====================
+   LOGIN PAGE
+===================== */
+.login-page {
+  background-color: #003B5C;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+}
+
+/* Header */
+.login-header {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #ffffff;
+}
+
+.wits-logo {
+  width: 80px;
+  margin-bottom: 12px;
+}
+
+.login-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.login-header p {
+  font-size: 14px;
+  color: #a0b8c8;
+  margin-top: 4px;
+}
+
+/* Card */
+.login-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 36px 32px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.login-card h2 {
+  font-size: 22px;
+  color: #003B5C;
+  margin-bottom: 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #003B5C;
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.form-group input:focus {
+  border-color: #003B5C;
+}
+
+/* Error Message */
+.error-message {
+  color: #e74c3c;
+  font-size: 13px;
+  margin-bottom: 10px;
+  min-height: 18px;
+  text-align: center;
+}
+
+/* Button */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background-color: #003B5C;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #005580;
+}
+
+/* Forgot Password */
+.forgot-password {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #003B5C;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+/* Footer */
+.login-footer {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.login-footer p {
+  font-size: 12px;
+  color: #a0b8c8;
+}
