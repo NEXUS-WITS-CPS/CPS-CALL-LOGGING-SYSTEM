@@ -212,3 +212,36 @@ function handleResolveIncident(event) {
     successMessage.style.display = 'none';
   }, 3000);
 }
+
+// =====================
+// REPORTS
+// =====================
+function handleFilter(event) {
+  event.preventDefault();
+  const dateFrom = document.getElementById('dateFrom').value;
+  const dateTo = document.getElementById('dateTo').value;
+
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    alert('Date From cannot be after Date To.');
+    return;
+  }
+
+  alert('Report filters applied successfully!');
+}
+
+function generateReport(reportName) {
+  document.getElementById('reportModalTitle').textContent = reportName;
+  document.getElementById('reportModalMessage').textContent =
+    `Showing data for: ${reportName}. 
+     In a live system this would pull real data from the database.`;
+  document.getElementById('reportModal').showModal();
+}
+
+function closeReportModal() {
+  document.getElementById('reportModal').close();
+}
+
+function exportData(format) {
+  alert(`Exporting data as ${format}... 
+    In a live system this would download a real ${format} file.`);
+}
