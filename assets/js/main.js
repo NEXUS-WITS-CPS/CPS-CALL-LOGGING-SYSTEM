@@ -316,3 +316,38 @@ function handleEscalateIncident(event) {
     successMessage.style.display = 'none';
   }, 3000);
 }
+
+// =====================
+// TRACK INCIDENT
+// =====================
+function handleSearch(event) {
+  event.preventDefault();
+  const ticketNumber = document.getElementById('searchTicket').value.trim();
+
+  if (!ticketNumber) {
+    alert('Please enter a ticket number to search.');
+    return;
+  }
+
+  alert(`Searching for ticket: ${ticketNumber}. 
+    In a live system this would query the database.`);
+}
+
+function viewTicket(
+  ticketNumber, description, location,
+  category, priority, status, assignedTo, date
+) {
+  document.getElementById('detailTicketNumber').textContent = ticketNumber;
+  document.getElementById('detailDescription').textContent = description;
+  document.getElementById('detailLocation').textContent = location;
+  document.getElementById('detailCategory').textContent = category;
+  document.getElementById('detailPriority').textContent = priority;
+  document.getElementById('detailStatus').textContent = status;
+  document.getElementById('detailAssignedTo').textContent = assignedTo;
+  document.getElementById('detailDate').textContent = `Logged: ${date}`;
+
+  // Scroll to ticket detail
+  document.getElementById('ticketDetail').scrollIntoView({ 
+    behavior: 'smooth' 
+  });
+}
