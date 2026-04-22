@@ -93,3 +93,57 @@ function resetForm() {
   document.getElementById('successMessage').style.display = 'none';
   window.onload();
 }
+// =====================
+// ASSIGN INCIDENT
+// =====================
+let currentTicket = '';
+
+function openAssignModal(ticketNumber, description, priority) {
+  currentTicket = ticketNumber;
+
+  document.getElementById('modalTicketNumber').textContent = ticketNumber;
+  document.getElementById('modalDescription').textContent = description;
+  document.getElementById('modalPriority').textContent = priority;
+
+  // Set priority dropdown to match ticket priority
+  const prioritySelect = document.getElementById('updatePriority');
+  prioritySelect.value = priority.toLowerCase();
+
+  document.getElementById('assignModal').showModal();
+}
+
+function closeAssignModal() {
+  document.getElementById('assignModal').close();
+  document.getElementById('assignForm').reset();
+  document.getElementById('assignErrorMessage').textContent = '';
+}
+
+function handleAssignIncident(event) {
+  event.preventDefault();
+
+  const assignTo = document.getElementById('assignTo').value;
+  const errorMessage = document.getElementById('assignErrorMessage');
+  const successMessage = document.getElementById('successMessage');
+
+  // Clear previous errors
+  errorMessage.textContent = '';
+
+  // Validation
+  if (!assignTo) {
+    errorMessage.textContent = 'Please select an officer to assign this ticket to.';
+    return;
+  }
+
+  // Close modal
+  closeAssignModal();
+
+  // Show success message
+  successMessage.textContent = 
+    `Ticket ${currentTicket} successfully assigned to ${assignTo.replace('_', '. ').toUpperCase()}!`;
+  successMessage.style.display = 'block';
+
+  // Hide success message after 3 seconds
+  setTimeout(() => {
+    successMessage.style.display = 'none';
+  }, 3000);
+}
