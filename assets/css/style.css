@@ -665,3 +665,13 @@ body {
 .modal-ticket-info p:last-child {
   margin-bottom: 0;
 }
+
+/* =====================
+   RESOLVE PAGE
+===================== */
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}

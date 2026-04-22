@@ -147,3 +147,68 @@ function handleAssignIncident(event) {
     successMessage.style.display = 'none';
   }, 3000);
 }
+
+// =====================
+// RESOLVE INCIDENT
+// =====================
+let currentResolveTicket = '';
+
+function openResolveModal(ticketNumber, description, priority, assignedTo) {
+  currentResolveTicket = ticketNumber;
+
+  document.getElementById('resolveTicketNumber').textContent = ticketNumber;
+  document.getElementById('resolveDescription').textContent = description;
+  document.getElementById('resolvePriority').textContent = priority;
+  document.getElementById('resolveAssignedTo').textContent = assignedTo;
+
+  document.getElementById('resolveModal').showModal();
+}
+
+function closeResolveModal() {
+  document.getElementById('resolveModal').close();
+  document.getElementById('resolveForm').reset();
+  document.getElementById('resolveErrorMessage').textContent = '';
+}
+
+function handleResolveIncident(event) {
+  event.preventDefault();
+
+  const status = document.getElementById('resolveStatus').value;
+  const resolutionNotes = document.getElementById('resolutionNotes').value.trim();
+  const timeSpent = document.getElementById('timeSpent').value;
+  const errorMessage = document.getElementById('resolveErrorMessage');
+  const successMessage = document.getElementById('successMessage');
+
+  // Clear previous errors
+  errorMessage.textContent = '';
+
+  // Validation
+  if (!status) {
+    errorMessage.textContent = 'Please select a status.';
+    return;
+  }
+
+  if (!resolutionNotes) {
+    errorMessage.textContent = 
+      'Resolution notes are mandatory. Please describe the steps taken.';
+    return;
+  }
+
+  if (!timeSpent) {
+    errorMessage.textContent = 'Please select the time spent on this ticket.';
+    return;
+  }
+
+  // Close modal
+  closeResolveModal();
+
+  // Show success message
+  successMessage.textContent = 
+    `Ticket ${currentResolveTicket} has been successfully marked as ${status}!`;
+  successMessage.style.display = 'block';
+
+  // Hide after 3 seconds
+  setTimeout(() => {
+    successMessage.style.display = 'none';
+  }, 3000);
+}
