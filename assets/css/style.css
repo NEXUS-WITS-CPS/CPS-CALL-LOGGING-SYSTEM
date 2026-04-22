@@ -867,3 +867,92 @@ body {
   color: #999;
   text-transform: uppercase;
 }
+
+/* =====================
+   DEMO CREDENTIALS
+===================== */
+.demo-credentials {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background-color: #f0f6fa;
+  border-radius: 8px;
+  border: 1px solid #003B5C;
+  font-size: 12px;
+  color: #003B5C;
+  line-height: 1.8;
+}
+
+.demo-credentials p:first-child {
+  margin-bottom: 4px;
+}
+
+/* =====================
+   ESCALATE PAGE
+===================== */
+.sla-warning-banner {
+  background-color: #fff3cd;
+  border: 1.5px solid #f39c12;
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.sla-warning-icon {
+  font-size: 28px;
+}
+
+.sla-warning-text strong {
+  font-size: 15px;
+  color: #856404;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sla-warning-text p {
+  font-size: 13px;
+  color: #856404;
+  margin: 0;
+}
+
+/* SLA Badges */
+.sla-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sla-badge.breached {
+  background-color: #fde8e8;
+  color: #c0392b;
+}
+
+.sla-badge.approaching {
+  background-color: #fef3e2;
+  color: #d35400;
+}
+
+.sla-badge.within {
+  background-color: #eafaf1;
+  color: #1e8449;
+}
+
+/* Escalate Button */
+.btn-escalate {
+  padding: 10px 24px;
+  background-color: #e74c3c;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-escalate:hover {
+  background-color: #c0392b;
+}

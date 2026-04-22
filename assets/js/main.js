@@ -12,13 +12,15 @@ function handleLogin(event) {
   errorMessage.textContent = '';
 
   // Dummy role-based login for prototype
-  if (email === 'admin@wits.ac.za' && password === 'admin123') {
-    window.location.href = 'pages/dashboard.html';
-  } else if (email === 'officer@wits.ac.za' && password === 'officer123') {
-    window.location.href = 'pages/dashboard.html';
-  } else {
-    errorMessage.textContent = 'Invalid email or password. Please try again.';
-  }
+if (email === 'admin@wits.ac.za' && password === 'admin123') {
+  window.location.href = 'pages/dashboard.html';
+} else if (email === 'officer@wits.ac.za' && password === 'officer123') {
+  window.location.href = 'pages/officer-dashboard.html';
+} else if (email === 'tech@wits.ac.za' && password === 'tech123') {
+  window.location.href = 'pages/technician-dashboard.html';
+} else {
+  errorMessage.textContent = 'Invalid email or password. Please try again.';
+}
 }
 // =====================
 // AUTO SET DATE & TIME
@@ -244,4 +246,73 @@ function closeReportModal() {
 function exportData(format) {
   alert(`Exporting data as ${format}... 
     In a live system this would download a real ${format} file.`);
+}
+// =====================
+// ESCALATE INCIDENT
+// =====================
+let currentEscalateTicket = '';
+
+function openEscalateModal(ticketNumber, description, priority, slaStatus) {
+  currentEscalateTicket = ticketNumber;
+
+  document.getElementById('escalateTicketNumber').textContent = ticketNumber;
+  document.getElementById('escalateDescription').textContent = description;
+  document.getElementById('escalatePriority').textContent = priority;
+  document.getElementById('escalateSLAStatus').textContent = 
+    slaStatus === 'breached' ? 'SLA Breached' : 
+    slaStatus === 'approaching' ? 'Approaching Breach' : 'Within SLA';
+
+  // Auto select SLA breach reason if breached
+  if (slaStatus === 'breached') {
+    document.getElementById('escalationReason').value = 'sla_breach';
+  }
+
+  document.getElementById('escalateModal').showModal();
+}
+
+function closeEscalateModal() {
+  document.getElementById('escalateModal').close();
+  document.getElementById('escalateForm').reset();
+  document.getElementById('escalateErrorMessage').textContent = '';
+}
+
+function handleEscalateIncident(event) {
+  event.preventDefault();
+
+  const reason = document.getElementById('escalationReason').value;
+  const escalateTo = document.getElementById('escalateTo').value;
+  const notes = document.getElementById('escalationNotes').value.trim();
+  const errorMessage = document.getElementById('escalateErrorMessage');
+  const successMessage = document.getElementById('successMessage');
+
+  // Clear errors
+  errorMessage.textContent = '';
+
+  // Validation
+  if (!reason) {
+    errorMessage.textContent = 'Please select an escalation reason.';
+    return;
+  }
+
+  if (!escalateTo) {
+    errorMessage.textContent = 'Please select a department to escalate to.';
+    return;
+  }
+
+  if (!notes) {
+    errorMessage.textContent = 'Please provide escalation notes.';
+    return;
+  }
+
+  // Close modal
+  closeEscalateModal();
+
+  // Show success
+  successMessage.textContent = 
+    `Ticket ${currentEscalateTicket} has been successfully escalated!`;
+  successMessage.style.display = 'block';
+
+  setTimeout(() => {
+    successMessage.style.display = 'none';
+  }, 3000);
 }
