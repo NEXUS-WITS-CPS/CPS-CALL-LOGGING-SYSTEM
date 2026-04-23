@@ -209,6 +209,8 @@ body {
   font-size: 13px;
   text-decoration: none;
   transition: all 0.2s;
+  cursor: pointer;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .btn-logout:hover {

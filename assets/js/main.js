@@ -1,4 +1,105 @@
 // =====================
+// ROLE BASED ACCESS
+// =====================
+
+// Pages each role can access
+const roleAccess = {
+  admin: [
+    'dashboard.html',
+    'log-incident.html',
+    'assign-incident.html',
+    'resolve-incident.html',
+    'escalate-incident.html',
+    'track-incident.html',
+    'reports.html'
+  ],
+  officer: [
+    'officer-dashboard.html',
+    'log-incident.html',
+    'track-incident.html'
+  ],
+  technician: [
+    'technician-dashboard.html',
+    'resolve-incident.html',
+    'escalate-incident.html'
+  ]
+};
+
+// Sidebar links per role
+const roleSidebar = {
+  admin: `
+    <ul>
+      <li><a href="dashboard.html">🏠 Dashboard</a></li>
+      <li><a href="log-incident.html">📋 Log Incident</a></li>
+      <li><a href="assign-incident.html">👤 Assign Incident</a></li>
+      <li><a href="resolve-incident.html">✅ Resolve Incident</a></li>
+      <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
+      <li><a href="track-incident.html">🔍 Track Incident</a></li>
+      <li><a href="reports.html">📊 Reports</a></li>
+    </ul>
+  `,
+  officer: `
+    <ul>
+      <li><a href="officer-dashboard.html">🏠 Dashboard</a></li>
+      <li><a href="log-incident.html">📋 Log Incident</a></li>
+      <li><a href="track-incident.html">🔍 Track Incident</a></li>
+    </ul>
+  `,
+  technician: `
+    <ul>
+      <li><a href="technician-dashboard.html">🏠 Dashboard</a></li>
+      <li><a href="resolve-incident.html">✅ Resolve Incident</a></li>
+      <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
+    </ul>
+  `
+};
+
+function checkAccess() {
+  const role = localStorage.getItem('userRole');
+  const userName = localStorage.getItem('userName');
+  const currentPage = window.location.pathname.split('/').pop();
+
+  // If no role stored redirect to login
+  if (!role) {
+    window.location.href = '../index.html';
+    return;
+  }
+
+  // Check if current page is allowed for this role
+  if (!roleAccess[role].includes(currentPage)) {
+    window.location.href = '../index.html';
+    return;
+  }
+
+  // Update welcome name in navbar
+  const navUser = document.querySelector('.nav-user');
+  if (navUser) {
+    navUser.textContent = `Welcome, ${userName}`;
+  }
+
+  // Update sidebar based on role
+  const sidebarNav = document.querySelector('.sidebar-nav');
+  if (sidebarNav) {
+    sidebarNav.innerHTML = roleSidebar[role];
+
+    // Set active link
+    const links = sidebarNav.querySelectorAll('a');
+    links.forEach(link => {
+      if (link.getAttribute('href') === currentPage) {
+        link.parentElement.classList.add('active');
+      }
+    });
+  }
+}
+
+// Clear session on logout
+function logout() {
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('userName');
+  window.location.href = '../index.html';
+}
+
+// =====================
 // LOGIN HANDLER
 // =====================
 function handleLogin(event) {
@@ -13,10 +114,16 @@ function handleLogin(event) {
 
   // Dummy role-based login for prototype
 if (email === 'admin@wits.ac.za' && password === 'admin123') {
+  localStorage.setItem('userRole', 'admin');
+  localStorage.setItem('userName', 'Admin');
   window.location.href = 'pages/dashboard.html';
 } else if (email === 'officer@wits.ac.za' && password === 'officer123') {
+  localStorage.setItem('userRole', 'officer');
+  localStorage.setItem('userName', 'Officer');
   window.location.href = 'pages/officer-dashboard.html';
 } else if (email === 'tech@wits.ac.za' && password === 'tech123') {
+  localStorage.setItem('userRole', 'technician');
+  localStorage.setItem('userName', 'Technician');
   window.location.href = 'pages/technician-dashboard.html';
 } else {
   errorMessage.textContent = 'Invalid email or password. Please try again.';
