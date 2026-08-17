@@ -15,10 +15,11 @@ router.use(authMiddleware);
 // ── HELPER: Generate ticket number ──
 async function generateTicketNumber() {
   const year = new Date().getFullYear();
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('incidents')
     .select('*', { count: 'exact', head: true });
-  const num = String((count || 0) + 1).padStart(3, '0');
+  const nextNum = (count || 0) + 1;
+  const num = String(nextNum).padStart(3, '0');
   return `CLS-${year}-${num}`;
 }
 
@@ -76,13 +77,14 @@ router.post('/', async (req, res) => {
     // Check for duplicate (same location + category within 1 hour)
     const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
     const { data: duplicate } = await supabase
-      .from('incidents')
-      .select('ticket_number')
-      .eq('location_id', locationId)
-      .eq('category_id', categoryId)
-      .in('status', ['open','in_progress'])
-      .gte('date_logged', oneHourAgo)
-      .limit(1);
+  .from('incidents')
+  .select('ticket_number')
+  .eq('location_id', locationId)
+  .eq('category_id', categoryId)
+  .in('status', ['open','in_progress'])
+  .gte('date_logged', oneHourAgo)
+  .limit(1)
+  .maybeSingle();
 
     // Insert incident
     const { data: incident, error } = await supabase
