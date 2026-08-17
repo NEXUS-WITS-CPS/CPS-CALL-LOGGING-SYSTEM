@@ -6,7 +6,7 @@
 
 // ── API BASE URL ──
 // Change this to your Railway URL after deployment
-const API_BASE = 'https://cps-call-logging-system-production.up.railway.app/api';
+const API_BASE = 'https://wits-cps-api.up.railway.app/api';
 // For local testing use:
 // const API_BASE = 'http://localhost:3000/api';
 

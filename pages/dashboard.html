@@ -8,7 +8,6 @@
 </head>
 <body class="dashboard-page">
 
-  <!-- Top Navbar -->
   <nav class="navbar">
     <section class="navbar-left">
       <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
@@ -16,46 +15,43 @@
     </section>
     <section class="navbar-right">
       <span class="nav-user">Welcome, Admin</span>
-     <button class="btn-logout" onclick="logout()">Logout</button>
+      <button class="btn-logout" onclick="logout()">Logout</button>
     </section>
   </nav>
 
-  <!-- Page Layout -->
   <section class="page-layout">
-
-    <!-- Sidebar -->
     <aside class="sidebar">
       <nav class="sidebar-nav">
         <ul>
-          <li class="active">
-            <a href="dashboard.html">🏠 Dashboard</a>
-          </li>
-          <li>
-            <a href="log-incident.html">📋 Log Incident</a>
-          </li>
-          <li>
-            <a href="assign-incident.html">👤 Assign Incident</a>
-          </li>
-          <li>
-            <a href="resolve-incident.html">✅ Resolve Incident</a>
-          </li>
-          <li>
-            <a href="reports.html">📊 Reports</a>
-          </li>
+          <li class="active"><a href="dashboard.html">🏠 Dashboard</a></li>
+          <li><a href="log-incident.html">📋 Log Incident</a></li>
+          <li><a href="assign-incident.html">👤 Assign Incident</a></li>
+          <li><a href="resolve-incident.html">✅ Resolve Incident</a></li>
+          <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
+          <li><a href="confirm-incident.html">🔔 Confirm / Close</a></li>
+          <li><a href="track-incident.html">🔍 Track Incident</a></li>
+          <li><a href="reports.html">📊 Reports</a></li>
         </ul>
       </nav>
     </aside>
 
-    <!-- Main Content -->
     <main class="main-content">
 
-      <!-- Page Title -->
       <header class="page-header">
         <h1>Dashboard</h1>
         <p>Overview of all incidents and system activity</p>
+        <a href="log-incident.html" class="btn-primary">＋ New Incident</a>
       </header>
 
-      <!-- Stats Cards -->
+      <!-- SLA Alert Banner -->
+      <div id="slaAlertBanner" style="display:none; background:#fff3cd; border:1px solid #ffc107; border-left:4px solid #dc3545; padding:12px 16px; margin-bottom:20px; border-radius:4px; display:flex; align-items:center; gap:12px;">
+        <span>⚠️</span>
+        <div>
+          <strong>SLA Alert</strong>
+          <p id="slaAlertText" style="margin:0; font-size:13px;"></p>
+        </div>
+      </div>
+
       <section class="stats-grid">
         <article class="stat-card">
           <h3>Total Tickets</h3>
@@ -79,18 +75,10 @@
         </article>
       </section>
 
-      <!-- Recent Tickets -->
       <section class="table-section">
         <header class="table-header">
           <h2>Recent Tickets</h2>
-          <a href="log-incident.html" class="btn-primary">＋ New Incident</a>
-      </div>
-      <div class="sla-warning-banner" id="slaAlertBanner" style="display:none; margin-bottom:24px;">
-        <span class="sla-warning-icon">⚠️</span>
-        <div class="sla-warning-text"><strong>SLA Alert</strong><p id="slaAlertText"></p></div>
-        <a href="escalate-incident.html" class="btn-danger" style="margin-left:auto;padding:8px 16px;font-size:13px;">View</a>
         </header>
-
         <table class="tickets-table">
           <thead>
             <tr>
@@ -100,46 +88,13 @@
               <th>Priority</th>
               <th>Status</th>
               <th>Assigned To</th>
+              <th>SLA</th>
               <th>Date</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody id="incidentsTableBody">
-            <tr>
-              <td>CLS-2026-001</td>
-              <td>Suspicious person at gate 1</td>
-              <td>Main Gate</td>
-              <td><span class="badge critical">Critical</span></td>
-              <td><span class="badge open">Open</span></td>
-              <td>Unassigned</td>
-              <td>22 Apr 2026</td>
-            </tr>
-            <tr>
-              <td>CLS-2026-002</td>
-              <td>Broken access control panel</td>
-              <td>Science Block</td>
-              <td><span class="badge high">High</span></td>
-              <td><span class="badge inprogress">In Progress</span></td>
-              <td>J. Dlamini</td>
-              <td>21 Apr 2026</td>
-            </tr>
-            <tr>
-              <td>CLS-2026-003</td>
-              <td>CCTV camera offline</td>
-              <td>Library</td>
-              <td><span class="badge medium">Medium</span></td>
-              <td><span class="badge resolved">Resolved</span></td>
-              <td>T. Mokoena</td>
-              <td>20 Apr 2026</td>
-            </tr>
-            <tr>
-              <td>CLS-2026-004</td>
-              <td>Noise complaint near residence</td>
-              <td>East Campus</td>
-              <td><span class="badge low">Low</span></td>
-              <td><span class="badge open">Open</span></td>
-              <td>Unassigned</td>
-              <td>20 Apr 2026</td>
-            </tr>
+            <tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">Loading tickets...</td></tr>
           </tbody>
         </table>
       </section>
@@ -148,6 +103,6 @@
   </section>
 
   <script src="../assets/js/main.js"></script>
-<script>checkAccess();</script>
+  <script>checkAccess();</script>
 </body>
 </html>
