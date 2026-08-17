@@ -23,12 +23,10 @@ app.use(helmet());
 
 // ── CORS — allow your GitHub Pages frontend ──
 app.use(cors({
-  origin: [
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'https://nexus-wits-cps.github.io',
-    process.env.FRONTEND_URL
-  ].filter(Boolean),
+  origin: function(origin, callback) {
+    // Allow all origins including GitHub Pages subpaths
+    callback(null, true);
+  },
   methods:     ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true
