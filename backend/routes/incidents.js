@@ -10,17 +10,22 @@ router.use(authMiddleware);
 
 // ── HELPER: Generate ticket number ──
 async function generateTicketNumber() {
-  try {
-    const year = new Date().getFullYear();
-    const { count } = await supabase
-      .from('incidents')
-      .select('*', { count: 'exact', head: true });
-    const nextNum = String((count || 0) + 1).padStart(3, '0');
-    return `CLS-${year}-${nextNum}`;
-  } catch (e) {
-    const rand = String(Math.floor(Math.random() * 900) + 100);
-    return `CLS-${new Date().getFullYear()}-${rand}`;
+  const year = new Date().getFullYear();
+  // Get highest existing ticket number to avoid duplicates
+  const { data } = await supabase
+    .from('incidents')
+    .select('ticket_number')
+    .order('incident_id', { ascending: false })
+    .limit(1);
+
+  let nextNum = 1;
+  if (data && data.length > 0) {
+    const last = data[0].ticket_number;
+    const parts = last.split('-');
+    const lastNum = parseInt(parts[parts.length - 1]) || 0;
+    nextNum = lastNum + 1;
   }
+  return `CLS-${year}-${String(nextNum).padStart(3, '0')}`;
 }
 
 // ── HELPER: Calculate SLA deadline ──
