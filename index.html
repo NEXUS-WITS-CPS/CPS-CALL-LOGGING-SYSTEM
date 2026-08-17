@@ -1,45 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Wits CPS | Call Logging System</title>
-  <link rel="stylesheet" href="assets/css/style.css"/>
+  <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body class="login-page">
+
   <main class="login-container">
+
+    <!-- Logo & Branding -->
     <header class="login-header">
-      <img src="assets/images/wits-logo.jpg" alt="Wits University Logo" class="wits-logo"/>
+      <img src="assets/images/wits-logo.jpg" alt="Wits University Logo" class="wits-logo" />
       <h1>Campus Protection Services</h1>
-      <p class="tagline">Call Logging System · Nexus</p>
+      <p>Call Logging System</p>
     </header>
+
+    <!-- Login Form -->
     <section class="login-card">
-      <h2>Welcome back</h2>
-      <p class="login-subtitle">Sign in to access your dashboard</p>
-      <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
+      <h2>Sign In</h2>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+
         <div class="form-group">
           <label for="email">Email Address</label>
-          <input type="email" id="email" placeholder="e.g. admin@wits.ac.za" autocomplete="email" required/>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="e.g. john.doe@wits.ac.za"
+            required
+          />
         </div>
+
         <div class="form-group">
           <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Enter your password" required/>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            required
+          />
         </div>
+
         <p class="error-message" id="errorMessage"></p>
-        <button type="submit" class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;">Sign In →</button>
-        <div class="demo-credentials">
-          <strong>Demo Credentials</strong>
-          <div>👑 Admin &nbsp;&nbsp;&nbsp;— admin@wits.ac.za / admin123</div>
-          <div>🛡️ Officer &nbsp;— officer@wits.ac.za / officer123</div>
-          <div>🔧 Technician — tech@wits.ac.za / tech123</div>
-          <div>📞 Caller &nbsp;&nbsp;— caller@wits.ac.za / caller123</div>
-        </div>
+
+        <button type="submit" class="btn-primary">Sign In</button>
+
+        <a href="#" class="forgot-password">Forgot your password?</a>
+
+        <section class="demo-credentials">
+          <p><strong>Demo Credentials:</strong></p>
+          <p>👑 Admin: admin@wits.ac.za / admin123</p>
+          <p>🛡️ Officer: officer@wits.ac.za / officer123</p>
+          <p>🔧 Technician: tech@wits.ac.za / tech123</p>
+          <p>📞 Caller: caller@wits.ac.za / caller123</p>
+        </section>
+
       </form>
     </section>
+
     <footer class="login-footer">
-      <p>© 2026 University of the Witwatersrand · Team 20 Nexus · INFO3003A</p>
+      <p>© 2026 University of the Witwatersrand. All rights reserved.</p>
     </footer>
+
   </main>
+
   <script src="assets/js/main.js"></script>
 </body>
 </html>
