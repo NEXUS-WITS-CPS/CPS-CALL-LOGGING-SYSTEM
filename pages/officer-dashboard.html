@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Officer Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Officer</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="active">
+            <a href="officer-dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="log-incident.html">📋 Log Incident</a>
+          </li>
+          <li>
+            <a href="track-incident.html">🔍 Track Incident</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Officer Dashboard</h1>
+        <p>Overview of your logged incidents and current activity</p>
+      </header>
+
+      <!-- Stats Cards -->
+      <section class="stats-grid">
+        <article class="stat-card">
+          <h3>My Tickets</h3>
+          <p class="stat-number">12</p>
+          <span class="stat-label">All time</span>
+        </article>
+        <article class="stat-card open">
+          <h3>Open</h3>
+          <p class="stat-number">4</p>
+          <span class="stat-label">Needs attention</span>
+        </article>
+        <article class="stat-card inprogress">
+          <h3>In Progress</h3>
+          <p class="stat-number">3</p>
+          <span class="stat-label">Being resolved</span>
+        </article>
+        <article class="stat-card resolved">
+          <h3>Resolved</h3>
+          <p class="stat-number">5</p>
+          <span class="stat-label">Completed</span>
+        </article>
+      </section>
+
+      <!-- My Recent Tickets -->
+      <section class="table-section">
+        <header class="table-header">
+          <h2>My Recent Tickets</h2>
+          <a href="log-incident.html" class="btn-primary">+ Log New Incident</a>
+        </header>
+
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket No.</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLS-2026-001</td>
+              <td>Suspicious person at gate 1</td>
+              <td>Main Gate</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td><span class="badge open">Open</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <a href="track-incident.html" class="btn-assign">
+                  Track
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-004</td>
+              <td>Noise complaint near residence</td>
+              <td>East Campus</td>
+              <td><span class="badge low">Low</span></td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>20 Apr 2026</td>
+              <td>
+                <a href="track-incident.html" class="btn-assign">
+                  Track
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-005</td>
+              <td>Broken fence near parking</td>
+              <td>Parking Area</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td><span class="badge resolved">Resolved</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <a href="track-incident.html" class="btn-assign">
+                  Track
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

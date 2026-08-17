@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Confirm / Close Incident</title>
+  <link rel="stylesheet" href="../assets/css/style.css"/>
+</head>
+<body class="dashboard-page">
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo"/>
+      <div class="nav-brand"><span class="nav-title">CPS Call Logging System</span><span class="nav-sub">Nexus · Team 20</span></div>
+    </section>
+    <section class="navbar-right">
+      <div class="nav-user-info"><span class="nav-user">Loading...</span><span class="nav-role">Caller</span></div>
+      <button class="btn-logout" onclick="logout()">⎋ Logout</button>
+    </section>
+  </nav>
+  <section class="page-layout">
+    <aside class="sidebar"><div class="sidebar-header"><p>Main Menu</p></div><nav class="sidebar-nav"></nav><div class="sidebar-footer"><p></p></div></aside>
+    <main class="main-content">
+      <div class="page-header">
+        <div class="page-header-left">
+          <div class="breadcrumb">Home <span>/ Confirm / Close Incident</span></div>
+          <h1>Confirm / Close Incident</h1>
+          <p>Review the resolution and confirm or reject</p>
+        </div>
+      </div>
+
+      <p class="success-message" id="successMessage"></p>
+
+      <div class="info-message">
+        ℹ️ <strong>How this works:</strong> The technician has resolved your incident. Review the resolution notes below. Click <strong>Accept & Close</strong> to close the ticket, or <strong>Reject & Reopen</strong> if the issue persists.
+      </div>
+
+      <!-- Ticket 1 -->
+      <section class="confirmation-card" id="ticket-row-CLS-2026-003">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--grey-200);">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <h2 style="font-size:18px;font-weight:700;color:var(--navy);font-family:monospace;">CLS-2026-003</h2>
+            <span class="badge medium">Medium</span>
+            <span class="badge pending-confirmation">Pending Confirmation</span>
+          </div>
+          <span style="font-size:12px;color:var(--grey-400);">Logged: 20 Apr 2026 · Resolved: 22 Apr 2026</span>
+        </div>
+        <div class="ticket-info-grid" style="margin-bottom:20px;">
+          <div class="ticket-info-item"><span class="ticket-info-label">Description</span><span class="ticket-info-value">CCTV camera offline</span></div>
+          <div class="ticket-info-item"><span class="ticket-info-label">Location</span><span class="ticket-info-value">Library (Wartenweiler)</span></div>
+          <div class="ticket-info-item"><span class="ticket-info-label">Category</span><span class="ticket-info-value">CCTV / Surveillance</span></div>
+          <div class="ticket-info-item"><span class="ticket-info-label">Resolved By</span><span class="ticket-info-value">T. Mokoena</span></div>
+        </div>
+        <div class="resolution-summary">
+          <h3>✅ Resolution Notes from Technician</h3>
+          <p>The CCTV camera at the Library entrance was found to have a loose power connection caused by recent cable management work. The connector was re-seated and secured. Camera feed tested and confirmed operational.</p>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #86efac;display:flex;gap:24px;">
+            <div><span style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;">Time Spent</span><p style="font-size:14px;color:#166534;font-weight:600;">45 minutes</p></div>
+            <div><span style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;">Root Cause</span><p style="font-size:14px;color:#166534;font-weight:600;">Hardware Failure</p></div>
+            <div><span style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:600;">Resolved On</span><p style="font-size:14px;color:#166534;font-weight:600;">22 Apr 2026</p></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <p style="font-size:13.5px;font-weight:600;color:var(--navy);margin-bottom:16px;">🔔 Is this incident satisfactorily resolved?</p>
+          <div class="confirmation-actions">
+            <div class="confirm-option accept" onclick="showAcceptForm('CLS-2026-003')">
+              <div class="confirm-option-icon">✅</div><h3>Accept & Close</h3><p>The incident has been resolved to my satisfaction.</p>
+            </div>
+            <div class="confirm-option reject" onclick="showRejectForm('CLS-2026-003')">
+              <div class="confirm-option-icon">🔄</div><h3>Reject & Reopen</h3><p>The issue has not been resolved.</p>
+            </div>
+          </div>
+          <div id="acceptForm-CLS-2026-003" style="display:none;margin-top:20px;padding:20px;background:var(--green-lt);border:1.5px solid #86efac;border-radius:var(--radius-md);">
+            <h4 style="color:var(--green);font-size:14px;margin-bottom:12px;">✅ Confirm Resolution</h4>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label style="font-size:13px;color:var(--navy);">Satisfaction Rating <span style="font-weight:400;color:var(--grey-400);">(Optional)</span></label>
+              <select id="rating-CLS-2026-003" style="padding:9px 14px;border:1.5px solid #86efac;border-radius:var(--radius-sm);font-size:13.5px;width:100%;font-family:var(--font);background:white;">
+                <option value="">Select rating</option>
+                <option value="5">⭐⭐⭐⭐⭐ Excellent</option>
+                <option value="4">⭐⭐⭐⭐ Good</option>
+                <option value="3">⭐⭐⭐ Satisfactory</option>
+                <option value="2">⭐⭐ Poor</option>
+                <option value="1">⭐ Very Poor</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label style="font-size:13px;color:var(--navy);">Additional Comments <span style="font-weight:400;color:var(--grey-400);">(Optional)</span></label>
+              <textarea id="feedback-CLS-2026-003" rows="3" placeholder="Any additional feedback..." style="width:100%;padding:10px 14px;border:1.5px solid #86efac;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);resize:vertical;"></textarea>
+            </div>
+            <p class="error-message" id="error-CLS-2026-003"></p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button class="btn-secondary" style="font-size:13px;padding:8px 18px;" onclick="hideConfirmForms('CLS-2026-003')">Cancel</button>
+              <button class="btn-confirm" style="font-size:13px;padding:8px 18px;" onclick="confirmResolution('CLS-2026-003','accept')">✅ Confirm & Close Ticket</button>
+            </div>
+          </div>
+          <div id="rejectForm-CLS-2026-003" style="display:none;margin-top:20px;padding:20px;background:var(--red-light);border:1.5px solid #fca5a5;border-radius:var(--radius-md);">
+            <h4 style="color:var(--red);font-size:14px;margin-bottom:12px;">🔄 Reject Resolution — Reopen Ticket</h4>
+            <div class="form-group" style="margin-bottom:16px;">
+              <label style="font-size:13px;color:var(--navy);">Reason for Rejection <span class="required">*</span></label>
+              <textarea id="reject-feedback-CLS-2026-003" rows="3" placeholder="Why is the resolution unsatisfactory?" style="width:100%;padding:10px 14px;border:1.5px solid #fca5a5;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font);resize:vertical;"></textarea>
+            </div>
+            <p class="error-message" id="reject-error-CLS-2026-003"></p>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+              <button class="btn-secondary" style="font-size:13px;padding:8px 18px;" onclick="hideConfirmForms('CLS-2026-003')">Cancel</button>
+              <button class="btn-reject" style="font-size:13px;padding:8px 18px;" onclick="rejectResolution('CLS-2026-003')">🔄 Reject & Reopen</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Closed tickets -->
+      <section class="table-section">
+        <div class="table-header"><h2>🔒 Recently Closed Tickets</h2></div>
+        <table class="tickets-table">
+          <thead><tr><th>Ticket No.</th><th>Description</th><th>Closed On</th><th>Rating</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><strong style="font-family:monospace;">CLS-2026-009</strong></td><td>Armed robbery near ATM</td><td>19 Apr 2026</td><td>⭐⭐⭐⭐⭐</td><td><a href="track-incident.html" class="btn-assign">View History</a></td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    checkAccess();
+    function showAcceptForm(t){hideConfirmForms(t);const el=document.getElementById('acceptForm-'+t);if(el){el.style.display='block';el.scrollIntoView({behavior:'smooth',block:'nearest'});}}
+    function showRejectForm(t){hideConfirmForms(t);const el=document.getElementById('rejectForm-'+t);if(el){el.style.display='block';el.scrollIntoView({behavior:'smooth',block:'nearest'});}}
+    function hideConfirmForms(t){const af=document.getElementById('acceptForm-'+t);const rf=document.getElementById('rejectForm-'+t);if(af)af.style.display='none';if(rf)rf.style.display='none';}
+    function rejectResolution(t){
+      const fb=document.getElementById('reject-feedback-'+t);const err=document.getElementById('reject-error-'+t);
+      if(!fb||!fb.value.trim()){if(err)err.textContent='Please provide a reason.';return;}
+      confirmResolution(t,'reject');
+    }
+  </script>
+</body>
+</html>

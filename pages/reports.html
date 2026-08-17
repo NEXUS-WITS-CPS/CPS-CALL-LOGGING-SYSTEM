@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Reports</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Admin</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="log-incident.html">📋 Log Incident</a>
+          </li>
+          <li>
+            <a href="assign-incident.html">👤 Assign Incident</a>
+          </li>
+          <li>
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li class="active">
+            <a href="reports.html">📊 Reports</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Reports & Analytics</h1>
+        <p>Generate and export operational reports for Wits CPS</p>
+      </header>
+
+      <!-- Date Range Filter -->
+      <section class="filter-card">
+        <h2>Filter Reports</h2>
+        <form id="filterForm" onsubmit="handleFilter(event)">
+          <section class="form-row">
+            <div class="form-group">
+              <label for="dateFrom">Date From</label>
+              <input type="date" id="dateFrom" name="dateFrom" />
+            </div>
+            <div class="form-group">
+              <label for="dateTo">Date To</label>
+              <input type="date" id="dateTo" name="dateTo" />
+            </div>
+            <div class="form-group">
+              <label for="reportPriority">Priority</label>
+              <select id="reportPriority" name="reportPriority">
+                <option value="all">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="reportStatus">Status</label>
+              <select id="reportStatus" name="reportStatus">
+                <option value="all">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+          </section>
+          <section class="form-actions">
+            <button type="submit" class="btn-primary">
+              Generate Report
+            </button>
+          </section>
+        </form>
+      </section>
+
+      <!-- Report Cards -->
+      <section class="reports-grid">
+
+        <!-- R1: Resolution Time -->
+        <article class="report-card">
+          <header class="report-card-header">
+            <span class="report-icon">⏱️</span>
+            <h3>Resolution Time Report</h3>
+          </header>
+          <p class="report-description">
+            Measures average time from ticket creation to resolution 
+            per technician, department, and priority level.
+          </p>
+          <section class="report-stats">
+            <div class="report-stat">
+              <span class="report-stat-number">2.4h</span>
+              <span class="report-stat-label">Avg. Resolution Time</span>
+            </div>
+            <div class="report-stat">
+              <span class="report-stat-number">94%</span>
+              <span class="report-stat-label">Within SLA</span>
+            </div>
+          </section>
+          <button 
+            class="btn-report" 
+            onclick="generateReport('Resolution Time Report')">
+            Generate Report
+          </button>
+        </article>
+
+        <!-- R2: Call Volume -->
+        <article class="report-card">
+          <header class="report-card-header">
+            <span class="report-icon">📞</span>
+            <h3>Call Volume Report</h3>
+          </header>
+          <p class="report-description">
+            Provides statistics on the number of incidents logged 
+            per day, week, or month broken down by category and location.
+          </p>
+          <section class="report-stats">
+            <div class="report-stat">
+              <span class="report-stat-number">124</span>
+              <span class="report-stat-label">Total This Month</span>
+            </div>
+            <div class="report-stat">
+              <span class="report-stat-number">+12%</span>
+              <span class="report-stat-label">vs Last Month</span>
+            </div>
+          </section>
+          <button 
+            class="btn-report" 
+            onclick="generateReport('Call Volume Report')">
+            Generate Report
+          </button>
+        </article>
+
+        <!-- R3: Priority Analysis -->
+        <article class="report-card">
+          <header class="report-card-header">
+            <span class="report-icon">🎯</span>
+            <h3>Priority Analysis Report</h3>
+          </header>
+          <p class="report-description">
+            Summarises distribution of incidents by urgency level — 
+            identifying which areas generate the highest critical calls.
+          </p>
+          <section class="report-stats">
+            <div class="report-stat">
+              <span class="report-stat-number">8</span>
+              <span class="report-stat-label">Critical Incidents</span>
+            </div>
+            <div class="report-stat">
+              <span class="report-stat-number">Main Gate</span>
+              <span class="report-stat-label">Top Hotspot</span>
+            </div>
+          </section>
+          <button 
+            class="btn-report" 
+            onclick="generateReport('Priority Analysis Report')">
+            Generate Report
+          </button>
+        </article>
+
+        <!-- R4: Incident History -->
+        <article class="report-card">
+          <header class="report-card-header">
+            <span class="report-icon">📋</span>
+            <h3>Incident History Report</h3>
+          </header>
+          <p class="report-description">
+            A comprehensive record of all calls — outstanding, 
+            in progress, and resolved — with full audit trail per ticket.
+          </p>
+          <section class="report-stats">
+            <div class="report-stat">
+              <span class="report-stat-number">99</span>
+              <span class="report-stat-label">Resolved</span>
+            </div>
+            <div class="report-stat">
+              <span class="report-stat-number">25</span>
+              <span class="report-stat-label">Outstanding</span>
+            </div>
+          </section>
+          <button 
+            class="btn-report" 
+            onclick="generateReport('Incident History Report')">
+            Generate Report
+          </button>
+        </article>
+
+        <!-- R5: Technician Performance -->
+        <article class="report-card">
+          <header class="report-card-header">
+            <span class="report-icon">👤</span>
+            <h3>Technician Performance Report</h3>
+          </header>
+          <p class="report-description">
+            Evaluates individual technician productivity by comparing 
+            workload, average resolution time, and completion rates.
+          </p>
+          <section class="report-stats">
+            <div class="report-stat">
+              <span class="report-stat-number">J. Dlamini</span>
+              <span class="report-stat-label">Top Performer</span>
+            </div>
+            <div class="report-stat">
+              <span class="report-stat-number">1.8h</span>
+              <span class="report-stat-label">Best Avg. Time</span>
+            </div>
+          </section>
+          <button 
+            class="btn-report" 
+            onclick="generateReport('Technician Performance Report')">
+            Generate Report
+          </button>
+        </article>
+
+      </section>
+
+      <!-- Export Section -->
+      <section class="export-section">
+        <h2>Export Data</h2>
+        <p>Download incident data in your preferred format</p>
+        <section class="export-buttons">
+          <button 
+            class="btn-export" 
+            onclick="exportData('CSV')">
+            📥 Export as CSV
+          </button>
+          <button 
+            class="btn-export" 
+            onclick="exportData('PDF')">
+            📄 Export as PDF
+          </button>
+        </section>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- Report Modal -->
+  <dialog id="reportModal" class="modal">
+    <section class="modal-content">
+      <header class="modal-header">
+        <h2 id="reportModalTitle"></h2>
+        <button class="modal-close" onclick="closeReportModal()">✕</button>
+      </header>
+      <section class="report-modal-body">
+        <p id="reportModalMessage"></p>
+        <section class="report-modal-stats">
+          <article class="report-modal-stat">
+            <span class="stat-number">124</span>
+            <span class="stat-label">Total Tickets</span>
+          </article>
+          <article class="report-modal-stat">
+            <span class="stat-number">99</span>
+            <span class="stat-label">Resolved</span>
+          </article>
+          <article class="report-modal-stat">
+            <span class="stat-number">2.4h</span>
+            <span class="stat-label">Avg Time</span>
+          </article>
+          <article class="report-modal-stat">
+            <span class="stat-number">94%</span>
+            <span class="stat-label">SLA Met</span>
+          </article>
+        </section>
+      </section>
+      <section class="form-actions">
+        <button 
+          class="btn-secondary" 
+          onclick="closeReportModal()">
+          Close
+        </button>
+        <button 
+          class="btn-primary" 
+          onclick="exportData('CSV')">
+          📥 Export CSV
+        </button>
+      </section>
+    </section>
+  </dialog>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

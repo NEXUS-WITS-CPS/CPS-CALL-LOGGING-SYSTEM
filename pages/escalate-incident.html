@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Escalate Incident</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Technician</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="technician-dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li class="active">
+            <a href="escalate-incident.html">🚨 Escalate Incident</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Escalate Incident</h1>
+        <p>Escalate tickets that require specialist intervention or have breached SLA</p>
+      </header>
+
+      <!-- Success Message -->
+      <p class="success-message" id="successMessage"></p>
+
+      <!-- SLA Warning Banner -->
+      <section class="sla-warning-banner">
+        <span class="sla-warning-icon">⚠️</span>
+        <section class="sla-warning-text">
+          <strong>SLA Alert</strong>
+          <p>1 ticket has breached its SLA timeframe and requires immediate escalation</p>
+        </section>
+      </section>
+
+      <!-- Tickets Available for Escalation -->
+      <section class="table-section">
+        <header class="table-header">
+          <h2>Tickets Available for Escalation</h2>
+          <span class="badge-count">3 tickets</span>
+        </header>
+
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket No.</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Time Open</th>
+              <th>SLA Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLS-2026-007</td>
+              <td>Fire exit blocked by equipment</td>
+              <td>Admin Block</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td><span class="badge open">Open</span></td>
+              <td>4h 32m</td>
+              <td><span class="sla-badge breached">SLA Breached</span></td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openEscalateModal(
+                    'CLS-2026-007',
+                    'Fire exit blocked by equipment',
+                    'Critical',
+                    'breached'
+                  )">
+                  Escalate
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-002</td>
+              <td>Broken access control panel</td>
+              <td>Science Block</td>
+              <td><span class="badge high">High</span></td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>2h 15m</td>
+              <td>
+                <span class="sla-badge approaching">Approaching</span>
+              </td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openEscalateModal(
+                    'CLS-2026-002',
+                    'Broken access control panel',
+                    'High',
+                    'approaching'
+                  )">
+                  Escalate
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-001</td>
+              <td>Suspicious person at gate 1</td>
+              <td>Main Gate</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td><span class="badge open">Open</span></td>
+              <td>1h 45m</td>
+              <td>
+                <span class="sla-badge within">Within SLA</span>
+              </td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openEscalateModal(
+                    'CLS-2026-001',
+                    'Suspicious person at gate 1',
+                    'Critical',
+                    'within'
+                  )">
+                  Escalate
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- Escalate Modal -->
+  <dialog id="escalateModal" class="modal">
+    <section class="modal-content">
+
+      <header class="modal-header">
+        <h2>Escalate Ticket</h2>
+        <button class="modal-close" onclick="closeEscalateModal()">✕</button>
+      </header>
+
+      <!-- Ticket Info -->
+      <section class="modal-ticket-info">
+        <p><strong>Ticket:</strong> <span id="escalateTicketNumber"></span></p>
+        <p><strong>Description:</strong> <span id="escalateDescription"></span></p>
+        <p><strong>Priority:</strong> <span id="escalatePriority"></span></p>
+        <p><strong>SLA Status:</strong> <span id="escalateSLAStatus"></span></p>
+      </section>
+
+      <form id="escalateForm" onsubmit="handleEscalateIncident(event)">
+
+        <!-- Escalation Reason -->
+        <div class="form-group">
+          <label for="escalationReason">
+            Escalation Reason <span class="required">*</span>
+          </label>
+          <select id="escalationReason" name="escalationReason" required>
+            <option value="" disabled selected>Select reason</option>
+            <option value="expertise">Expertise Required</option>
+            <option value="sla_breach">Automated SLA Breach</option>
+            <option value="resources">Additional Resources Needed</option>
+            <option value="authorization">Authorization Required</option>
+            <option value="safety">Safety Concern</option>
+          </select>
+        </div>
+
+        <!-- Escalate To -->
+        <div class="form-group">
+          <label for="escalateTo">
+            Escalate To <span class="required">*</span>
+          </label>
+          <select id="escalateTo" name="escalateTo" required>
+            <option value="" disabled selected>Select department</option>
+            <option value="senior_management">Senior Management</option>
+            <option value="specialist_team">Specialist Team</option>
+            <option value="external_security">External Security</option>
+            <option value="emergency_services">Emergency Services</option>
+            <option value="facilities">Facilities Management</option>
+          </select>
+        </div>
+
+        <!-- Update Priority -->
+        <div class="form-group">
+          <label for="escalatePriorityUpdate">
+            Update Priority <span class="required">*</span>
+          </label>
+          <select id="escalatePriorityUpdate" name="escalatePriorityUpdate" required>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical" selected>Critical</option>
+          </select>
+        </div>
+
+        <!-- Escalation Notes -->
+        <div class="form-group">
+          <label for="escalationNotes">
+            Escalation Notes <span class="required">*</span>
+          </label>
+          <textarea
+            id="escalationNotes"
+            name="escalationNotes"
+            rows="4"
+            placeholder="Describe why this ticket needs to be escalated..."
+            required
+          ></textarea>
+        </div>
+
+        <!-- Error Message -->
+        <p class="error-message" id="escalateErrorMessage"></p>
+
+        <!-- Modal Actions -->
+        <section class="form-actions">
+          <button
+            type="button"
+            class="btn-secondary"
+            onclick="closeEscalateModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-escalate">
+            🚨 Confirm Escalation
+          </button>
+        </section>
+
+      </form>
+    </section>
+  </dialog>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

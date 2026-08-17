@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Assign Incident</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Admin</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="log-incident.html">📋 Log Incident</a>
+          </li>
+          <li class="active">
+            <a href="assign-incident.html">👤 Assign Incident</a>
+          </li>
+          <li>
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li>
+            <a href="reports.html">📊 Reports</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Assign Incident</h1>
+        <p>Review open tickets and assign them to available officers</p>
+      </header>
+
+      <!-- Success Message -->
+      <p class="success-message" id="successMessage"></p>
+
+      <!-- Unassigned Tickets Table -->
+      <section class="table-section">
+        <header class="table-header">
+          <h2>Unassigned Tickets</h2>
+          <span class="badge-count">4 pending</span>
+        </header>
+
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket No.</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Date Logged</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLS-2026-001</td>
+              <td>Suspicious person at gate 1</td>
+              <td>Main Gate</td>
+              <td>Security Threat</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <button 
+                  class="btn-assign" 
+                  onclick="openAssignModal('CLS-2026-001', 
+                  'Suspicious person at gate 1', 'Critical')">
+                  Assign
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-004</td>
+              <td>Noise complaint near residence</td>
+              <td>East Campus</td>
+              <td>Noise Complaint</td>
+              <td><span class="badge low">Low</span></td>
+              <td>20 Apr 2026</td>
+              <td>
+                <button 
+                  class="btn-assign" 
+                  onclick="openAssignModal('CLS-2026-004', 
+                  'Noise complaint near residence', 'Low')">
+                  Assign
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-005</td>
+              <td>Broken fence near parking</td>
+              <td>Parking Area</td>
+              <td>Infrastructure</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <button 
+                  class="btn-assign" 
+                  onclick="openAssignModal('CLS-2026-005', 
+                  'Broken fence near parking', 'Medium')">
+                  Assign
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-006</td>
+              <td>Unauthorised vehicle in staff parking</td>
+              <td>Parking Area</td>
+              <td>Access Control</td>
+              <td><span class="badge high">High</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <button 
+                  class="btn-assign" 
+                  onclick="openAssignModal('CLS-2026-006', 
+                  'Unauthorised vehicle in staff parking', 'High')">
+                  Assign
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- Assignment Modal -->
+  <dialog id="assignModal" class="modal">
+    <section class="modal-content">
+
+      <header class="modal-header">
+        <h2>Assign Ticket</h2>
+        <button class="modal-close" onclick="closeAssignModal()">✕</button>
+      </header>
+
+      <!-- Ticket Info -->
+      <section class="modal-ticket-info">
+        <p><strong>Ticket:</strong> <span id="modalTicketNumber"></span></p>
+        <p><strong>Description:</strong> <span id="modalDescription"></span></p>
+        <p><strong>Priority:</strong> <span id="modalPriority"></span></p>
+      </section>
+
+      <form id="assignForm" onsubmit="handleAssignIncident(event)">
+
+        <!-- Assign To -->
+        <div class="form-group">
+          <label for="assignTo">Assign To <span class="required">*</span></label>
+          <select id="assignTo" name="assignTo" required>
+            <option value="" disabled selected>Select officer</option>
+            <option value="j_dlamini">J. Dlamini</option>
+            <option value="t_mokoena">T. Mokoena</option>
+            <option value="s_nkosi">S. Nkosi</option>
+            <option value="r_sithole">R. Sithole</option>
+            <option value="m_khumalo">M. Khumalo</option>
+          </select>
+        </div>
+
+        <!-- Update Priority -->
+        <div class="form-group">
+          <label for="updatePriority">Update Priority</label>
+          <select id="updatePriority" name="updatePriority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+
+        <!-- Assignment Notes -->
+        <div class="form-group">
+          <label for="assignmentNotes">Assignment Notes</label>
+          <textarea
+            id="assignmentNotes"
+            name="assignmentNotes"
+            rows="3"
+            placeholder="Any instructions for the assigned officer (optional)..."
+          ></textarea>
+        </div>
+
+        <!-- Error Message -->
+        <p class="error-message" id="assignErrorMessage"></p>
+
+        <!-- Modal Actions -->
+        <section class="form-actions">
+          <button 
+            type="button" 
+            class="btn-secondary" 
+            onclick="closeAssignModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            Confirm Assignment
+          </button>
+        </section>
+
+      </form>
+    </section>
+  </dialog>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Log Incident</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Admin</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li class="active">
+            <a href="log-incident.html">📋 Log Incident</a>
+          </li>
+          <li>
+            <a href="assign-incident.html">👤 Assign Incident</a>
+          </li>
+          <li>
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li>
+            <a href="reports.html">📊 Reports</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Log New Incident</h1>
+        <p>Complete all required fields to register a new incident</p>
+      </header>
+
+      <!-- Success Message -->
+      <p class="success-message" id="successMessage"></p>
+
+      <!-- Incident Form -->
+      <section class="form-card">
+
+        <!-- Auto Ticket Number -->
+        <section class="ticket-number-bar">
+          <span>Ticket Number:</span>
+          <strong id="ticketNumber">CLS-2026-005</strong>
+          <span class="ticket-auto-label">Auto-generated</span>
+        </section>
+
+        <form id="incidentForm" onsubmit="handleLogIncident(event)">
+
+          <!-- Row 1: Caller Name & Contact -->
+          <section class="form-row">
+            <div class="form-group">
+              <label for="callerName">Caller Name <span class="required">*</span></label>
+              <input
+                type="text"
+                id="callerName"
+                name="callerName"
+                placeholder="Enter caller full name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="callerContact">Contact Number <span class="required">*</span></label>
+              <input
+                type="tel"
+                id="callerContact"
+                name="callerContact"
+                placeholder="e.g. 011 717 1000"
+                required
+              />
+            </div>
+          </section>
+
+          <!-- Row 2: Category & Location -->
+          <section class="form-row">
+            <div class="form-group">
+              <label for="category">Incident Category <span class="required">*</span></label>
+              <select id="category" name="category" required>
+                <option value="" disabled selected>Select category</option>
+                <option value="access_control">Access Control</option>
+                <option value="cctv">CCTV / Surveillance</option>
+                <option value="infrastructure">Infrastructure</option>
+                <option value="security_threat">Security Threat</option>
+                <option value="noise_complaint">Noise Complaint</option>
+                <option value="medical">Medical Emergency</option>
+                <option value="fire">Fire / Safety</option>
+                <option value="theft">Theft / Robbery</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="location">Location <span class="required">*</span></label>
+              <select id="location" name="location" required>
+                <option value="" disabled selected>Select location</option>
+                <option value="main_gate">Main Gate</option>
+                <option value="science_block">Science Block</option>
+                <option value="library">Library</option>
+                <option value="east_campus">East Campus</option>
+                <option value="west_campus">West Campus</option>
+                <option value="residence">Residence</option>
+                <option value="admin_block">Admin Block</option>
+                <option value="sports_fields">Sports Fields</option>
+                <option value="parking">Parking Area</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- Row 3: Priority & Status -->
+          <section class="form-row">
+            <div class="form-group">
+              <label for="priority">Priority Level <span class="required">*</span></label>
+              <select id="priority" name="priority" required>
+                <option value="" disabled selected>Select priority</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="status">Status <span class="required">*</span></label>
+              <select id="status" name="status" required>
+                <option value="open" selected>Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- Row 4: Description -->
+          <section class="form-row">
+            <div class="form-group full-width">
+              <label for="description">Incident Description <span class="required">*</span></label>
+              <textarea
+                id="description"
+                name="description"
+                rows="4"
+                placeholder="Provide a detailed description of the incident..."
+                required
+              ></textarea>
+            </div>
+          </section>
+
+          <!-- Row 5: Date & Time -->
+          <section class="form-row">
+            <div class="form-group">
+              <label for="incidentDate">Date <span class="required">*</span></label>
+              <input
+                type="date"
+                id="incidentDate"
+                name="incidentDate"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="incidentTime">Time <span class="required">*</span></label>
+              <input
+                type="time"
+                id="incidentTime"
+                name="incidentTime"
+                required
+              />
+            </div>
+          </section>
+
+          <!-- Row 6: Additional Notes -->
+          <section class="form-row">
+            <div class="form-group full-width">
+              <label for="notes">Additional Notes</label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                placeholder="Any additional information (optional)..."
+              ></textarea>
+            </div>
+          </section>
+
+          <!-- Error Message -->
+          <p class="error-message" id="errorMessage"></p>
+
+          <!-- Form Actions -->
+          <section class="form-actions">
+            <button type="button" class="btn-secondary" onclick="resetForm()">
+              Clear Form
+            </button>
+            <button type="submit" class="btn-primary">
+              Submit Incident
+            </button>
+          </section>
+
+        </form>
+      </section>
+
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

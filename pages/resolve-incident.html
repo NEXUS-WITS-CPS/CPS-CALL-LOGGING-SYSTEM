@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Resolve Incident</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Admin</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="log-incident.html">📋 Log Incident</a>
+          </li>
+          <li>
+            <a href="assign-incident.html">👤 Assign Incident</a>
+          </li>
+          <li class="active">
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li>
+            <a href="reports.html">📊 Reports</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Resolve Incident</h1>
+        <p>Update ticket status and provide resolution details</p>
+      </header>
+
+      <!-- Success Message -->
+      <p class="success-message" id="successMessage"></p>
+
+      <!-- In Progress Tickets Table -->
+      <section class="table-section">
+        <header class="table-header">
+          <h2>Active Tickets</h2>
+          <span class="badge-count">3 active</span>
+        </header>
+
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket No.</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Priority</th>
+              <th>Assigned To</th>
+              <th>Date Logged</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLS-2026-002</td>
+              <td>Broken access control panel</td>
+              <td>Science Block</td>
+              <td><span class="badge high">High</span></td>
+              <td>J. Dlamini</td>
+              <td>21 Apr 2026</td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openResolveModal(
+                    'CLS-2026-002',
+                    'Broken access control panel',
+                    'High',
+                    'J. Dlamini'
+                  )">
+                  Resolve
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-003</td>
+              <td>CCTV camera offline</td>
+              <td>Library</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td>T. Mokoena</td>
+              <td>20 Apr 2026</td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openResolveModal(
+                    'CLS-2026-003',
+                    'CCTV camera offline',
+                    'Medium',
+                    'T. Mokoena'
+                  )">
+                  Resolve
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-007</td>
+              <td>Fire exit blocked by equipment</td>
+              <td>Admin Block</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td>S. Nkosi</td>
+              <td>22 Apr 2026</td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>
+                <button
+                  class="btn-assign"
+                  onclick="openResolveModal(
+                    'CLS-2026-007',
+                    'Fire exit blocked by equipment',
+                    'Critical',
+                    'S. Nkosi'
+                  )">
+                  Resolve
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- Resolve Modal -->
+  <dialog id="resolveModal" class="modal">
+    <section class="modal-content">
+
+      <header class="modal-header">
+        <h2>Resolve Ticket</h2>
+        <button class="modal-close" onclick="closeResolveModal()">✕</button>
+      </header>
+
+      <!-- Ticket Info -->
+      <section class="modal-ticket-info">
+        <p><strong>Ticket:</strong> <span id="resolveTicketNumber"></span></p>
+        <p><strong>Description:</strong> <span id="resolveDescription"></span></p>
+        <p><strong>Priority:</strong> <span id="resolvePriority"></span></p>
+        <p><strong>Assigned To:</strong> <span id="resolveAssignedTo"></span></p>
+      </section>
+
+      <form id="resolveForm" onsubmit="handleResolveIncident(event)">
+
+        <!-- Update Status -->
+        <div class="form-group">
+          <label for="resolveStatus">
+            Update Status <span class="required">*</span>
+          </label>
+          <select id="resolveStatus" name="resolveStatus" required>
+            <option value="" disabled selected>Select status</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="escalated">Escalated</option>
+          </select>
+        </div>
+
+        <!-- Resolution Notes -->
+        <div class="form-group">
+          <label for="resolutionNotes">
+            Resolution Notes <span class="required">*</span>
+          </label>
+          <textarea
+            id="resolutionNotes"
+            name="resolutionNotes"
+            rows="4"
+            placeholder="Describe the steps taken to resolve this incident..."
+            required
+          ></textarea>
+          <small class="field-hint">
+            Resolution notes are mandatory before marking a ticket as resolved
+          </small>
+        </div>
+
+        <!-- Work Log -->
+        <div class="form-group">
+          <label for="timeSpent">
+            Time Spent <span class="required">*</span>
+          </label>
+          <select id="timeSpent" name="timeSpent" required>
+            <option value="" disabled selected>Select time spent</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="90">1.5 hours</option>
+            <option value="120">2 hours</option>
+            <option value="180">3 hours</option>
+            <option value="240">4+ hours</option>
+          </select>
+        </div>
+
+        <!-- Internal Notes -->
+        <div class="form-group">
+          <label for="internalNotes">Internal Notes</label>
+          <textarea
+            id="internalNotes"
+            name="internalNotes"
+            rows="3"
+            placeholder="Internal notes (not visible to caller)..."
+          ></textarea>
+          <small class="field-hint">
+            These notes are internal and will not be visible to the caller
+          </small>
+        </div>
+
+        <!-- Error Message -->
+        <p class="error-message" id="resolveErrorMessage"></p>
+
+        <!-- Modal Actions -->
+        <section class="form-actions">
+          <button
+            type="button"
+            class="btn-secondary"
+            onclick="closeResolveModal()">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            Submit Resolution
+          </button>
+        </section>
+
+      </form>
+    </section>
+  </dialog>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>

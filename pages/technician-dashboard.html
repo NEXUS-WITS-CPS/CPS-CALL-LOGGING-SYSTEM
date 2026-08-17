@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Technician Dashboard</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome, Technician</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+
+  <!-- Page Layout -->
+  <section class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="active">
+            <a href="technician-dashboard.html">🏠 Dashboard</a>
+          </li>
+          <li>
+            <a href="resolve-incident.html">✅ Resolve Incident</a>
+          </li>
+          <li>
+            <a href="escalate-incident.html">🚨 Escalate Incident</a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <header class="page-header">
+        <h1>Technician Dashboard</h1>
+        <p>Your assigned tickets and work queue</p>
+      </header>
+
+      <!-- Stats Cards -->
+      <section class="stats-grid">
+        <article class="stat-card">
+          <h3>Assigned To Me</h3>
+          <p class="stat-number">8</p>
+          <span class="stat-label">Total tickets</span>
+        </article>
+        <article class="stat-card open">
+          <h3>Pending</h3>
+          <p class="stat-number">3</p>
+          <span class="stat-label">Not started</span>
+        </article>
+        <article class="stat-card inprogress">
+          <h3>In Progress</h3>
+          <p class="stat-number">2</p>
+          <span class="stat-label">Active now</span>
+        </article>
+        <article class="stat-card resolved">
+          <h3>Resolved</h3>
+          <p class="stat-number">3</p>
+          <span class="stat-label">Completed</span>
+        </article>
+      </section>
+
+      <!-- Assigned Tickets -->
+      <section class="table-section">
+        <header class="table-header">
+          <h2>My Work Queue</h2>
+          <span class="badge-count">3 pending</span>
+        </header>
+
+        <table class="tickets-table">
+          <thead>
+            <tr>
+              <th>Ticket No.</th>
+              <th>Description</th>
+              <th>Location</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLS-2026-002</td>
+              <td>Broken access control panel</td>
+              <td>Science Block</td>
+              <td><span class="badge high">High</span></td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>21 Apr 2026</td>
+              <td>
+                <a href="resolve-incident.html" class="btn-assign">
+                  Resolve
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-003</td>
+              <td>CCTV camera offline</td>
+              <td>Library</td>
+              <td><span class="badge medium">Medium</span></td>
+              <td><span class="badge inprogress">In Progress</span></td>
+              <td>20 Apr 2026</td>
+              <td>
+                <a href="resolve-incident.html" class="btn-assign">
+                  Resolve
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>CLS-2026-007</td>
+              <td>Fire exit blocked by equipment</td>
+              <td>Admin Block</td>
+              <td><span class="badge critical">Critical</span></td>
+              <td><span class="badge open">Open</span></td>
+              <td>22 Apr 2026</td>
+              <td>
+                <a href="escalate-incident.html" class="btn-assign">
+                  Escalate
+                </a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+<script>checkAccess();</script>
+</body>
+</html>
