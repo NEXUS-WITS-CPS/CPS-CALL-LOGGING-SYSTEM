@@ -68,7 +68,7 @@
           <span class="ticket-auto-label">Auto-generated</span>
         </section>
 
-        <form id="incidentForm" onsubmit="handleLogIncident(event)" id="incidentForm" onsubmit="handleLogIncident(event)">
+        <form id="incidentForm" onsubmit="handleLogIncident(event)">
 
           <!-- Row 1: Caller Name & Contact -->
           <section class="form-row">
@@ -77,7 +77,7 @@
               <input
                 type="text"
                 id="callerName"
-                name="callerName" id="callerName"
+                name="callerName"
                 placeholder="Enter caller full name"
                 required
               />
@@ -87,7 +87,7 @@
               <input
                 type="tel"
                 id="callerContact"
-                name="callerContact" id="callerContact"
+                name="callerContact"
                 placeholder="e.g. 011 717 1000"
                 required
               />
@@ -98,7 +98,7 @@
           <section class="form-row">
             <div class="form-group">
               <label for="category">Incident Category <span class="required">*</span></label>
-              <select id="category" name="category" id="category" required>
+              <select id="category" name="category" required>
                 <option value="" disabled selected>Select category</option>
                 <option value="access_control">Access Control</option>
                 <option value="cctv">CCTV / Surveillance</option>
@@ -113,7 +113,7 @@
             </div>
             <div class="form-group">
               <label for="location">Location <span class="required">*</span></label>
-              <select id="location" name="location" id="location" required>
+              <select id="location" name="location" required>
                 <option value="" disabled selected>Select location</option>
                 <option value="main_gate">Main Gate</option>
                 <option value="science_block">Science Block</option>
@@ -133,7 +133,7 @@
           <section class="form-row">
             <div class="form-group">
               <label for="priority">Priority Level <span class="required">*</span></label>
-              <select id="priority" name="priority" id="priority" required>
+              <select id="priority" name="priority" required>
                 <option value="" disabled selected>Select priority</option>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -159,7 +159,7 @@
               <label for="description">Incident Description <span class="required">*</span></label>
               <textarea
                 id="description"
-                name="description" id="description"
+                name="description"
                 rows="4"
                 placeholder="Provide a detailed description of the incident..."
                 required
@@ -195,7 +195,7 @@
               <label for="notes">Additional Notes</label>
               <textarea
                 id="notes"
-                name="notes" id="notes"
+                name="notes"
                 rows="3"
                 placeholder="Any additional information (optional)..."
               ></textarea>

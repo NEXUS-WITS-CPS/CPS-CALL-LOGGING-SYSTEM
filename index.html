@@ -13,6 +13,7 @@
     <!-- Logo & Branding -->
     <header class="login-header">
       <img src="assets/images/wits-logo.jpg" alt="Wits University Logo" class="wits-logo" />
+    
       <h1>Campus Protection Services</h1>
       <p>Call Logging System</p>
     </header>
@@ -25,43 +26,45 @@
 
         <div class="form-group">
           <label for="email">Email Address</label>
-          <input
-            type="email"
+          <input 
+            type="email" 
             id="email"
             name="email"
             placeholder="e.g. john.doe@wits.ac.za"
-            required
+            required 
           />
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            type="password"
+          <input 
+            type="password" 
             id="password"
             name="password"
             placeholder="Enter your password"
-            required
+            required 
           />
         </div>
 
+        <!-- Error Message -->
         <p class="error-message" id="errorMessage"></p>
 
-        <button type="submit" class="btn-primary">Sign In</button>
+        <button type="submit" class="btn-primary">
+          Sign In
+        </button>
 
         <a href="#" class="forgot-password">Forgot your password?</a>
 
-        <section class="demo-credentials">
-          <p><strong>Demo Credentials:</strong></p>
-          <p>👑 Admin: admin@wits.ac.za / admin123</p>
-          <p>🛡️ Officer: officer@wits.ac.za / officer123</p>
-          <p>🔧 Technician: tech@wits.ac.za / tech123</p>
-          <p>📞 Caller: caller@wits.ac.za / caller123</p>
-        </section>
-
+<section class="demo-credentials">
+  <p><strong>Demo Credentials:</strong></p>
+  <p>👤 Admin: admin@wits.ac.za / admin123</p>
+  <p>🛡️ Officer: officer@wits.ac.za / officer123</p>
+  <p>🔧 Technician: tech@wits.ac.za / tech123</p>
+</section>
       </form>
     </section>
 
+    <!-- Footer -->
     <footer class="login-footer">
       <p>© 2026 University of the Witwatersrand. All rights reserved.</p>
     </footer>
