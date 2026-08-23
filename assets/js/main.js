@@ -188,8 +188,9 @@ async function loadOfficerDashboard() {
 
 async function loadTechDashboard() {
   try {
-    const r = await apiFetch('/incidents?status=in_progress');
-    const inc = r.incidents || [];
+    const r = await apiFetch('/incidents');
+    const user = getUser();
+    const inc = (r.incidents || []).filter(i => i.assigned_user?.user_id === user.userId || i.assigned_to === user.userId);
     const nums = document.querySelectorAll('.stat-number');
     if (nums[0]) nums[0].textContent = inc.length;
     if (nums[1]) nums[1].textContent = inc.filter(i=>i.status==='open').length;
