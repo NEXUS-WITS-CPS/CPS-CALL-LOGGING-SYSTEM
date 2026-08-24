@@ -128,7 +128,7 @@
       <section class="table-section" id="reportResults" style="display:none;">
         <header class="table-header">
           <h2 id="reportResultsTitle">Report Results</h2>
-          <button class="btn-secondary" onclick="exportCSV()">📥 Export as CSV</button>
+      
         </header>
         <div id="reportTableContainer"></div>
       </section>
@@ -331,7 +331,7 @@
       URL.revokeObjectURL(url);
     }
 
-    function exportPDF() { alert('PDF export — print this page using Ctrl+P and select "Save as PDF".'); }
+    function exportPDF() { window.print(); }
 
     function handleFilter(e) { e.preventDefault(); applyFilter(e); }
     function generateReport_old(name) {}
