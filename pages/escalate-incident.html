@@ -53,13 +53,13 @@
       <p class="success-message" id="successMessage"></p>
 
       <!-- SLA Warning Banner -->
-      <section class="sla-warning-banner">
-        <span class="sla-warning-icon">⚠️</span>
-        <section class="sla-warning-text">
-          <strong>SLA Alert</strong>
-          <p>1 ticket has breached its SLA timeframe and requires immediate escalation</p>
-        </section>
-      </section>
+<section class="sla-warning-banner" id="slaAlertBanner" style="display:none;">
+  <span class="sla-warning-icon">⚠️</span>
+  <section class="sla-warning-text">
+    <strong>SLA Alert</strong>
+    <p id="slaAlertText"></p>
+  </section>
+</section>
 
       <!-- Tickets Available for Escalation -->
       <section class="table-section">

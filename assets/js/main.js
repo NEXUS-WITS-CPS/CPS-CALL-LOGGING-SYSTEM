@@ -414,7 +414,20 @@ async function loadEscalateTickets() {
   try {
     const data=await apiFetch('/incidents');
     const inc=(data.incidents||[]).filter(i=>['open','in_progress'].includes(i.status));
-    const badge=document.querySelector('.badge-count'); if(badge) badge.textContent=`${inc.length} tickets`;
+const badge=document.querySelector('.badge-count'); if(badge) badge.textContent=`${inc.length} tickets`;
+
+// Show SLA alert only if real breaches exist
+const breached=inc.filter(i=>getSLAStatus(i)==='breached');
+const banner=document.getElementById('slaAlertBanner');
+const bannerText=document.getElementById('slaAlertText');
+if (banner && bannerText) {
+  if (breached.length > 0) {
+    bannerText.textContent=`${breached.length} ticket${breached.length>1?'s have':' has'} breached SLA and require${breached.length>1?'':'s'} immediate escalation.`;
+    banner.style.display='flex';
+  } else {
+    banner.style.display='none';
+  }
+}
     const tbody=document.querySelector('.tickets-table tbody'); if(!tbody) return;
     if (!inc.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">No tickets available.</td></tr>'; return; }
     tbody.innerHTML=inc.map(i=>{
