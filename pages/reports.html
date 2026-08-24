@@ -34,7 +34,7 @@
       <!-- Filter -->
       <section class="filter-card">
         <h2>Filter Reports</h2>
-        <form id="filterForm" onsubmit="handleFilter(event)">
+        <form id="filterForm" onsubmit="applyFilter(event)">
           <section class="form-row">
             <div class="form-group">
               <label for="dateFrom">Date From</label>
@@ -46,7 +46,7 @@
             </div>
             <div class="form-group">
               <label for="reportPriority">Priority</label>
-              <select id="reportPriority" name="reportPriority">
+              <select id="reportPriority">
                 <option value="all">All Priorities</option>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -56,7 +56,7 @@
             </div>
             <div class="form-group">
               <label for="reportStatus">Status</label>
-              <select id="reportStatus" name="reportStatus">
+              <select id="reportStatus">
                 <option value="all">All Statuses</option>
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
@@ -66,230 +66,276 @@
             </div>
           </section>
           <section class="form-actions">
-            <button type="submit" class="btn-primary">Generate Report</button>
+            <button type="submit" class="btn-primary">Apply Filters</button>
           </section>
         </form>
       </section>
 
       <!-- Report Cards -->
       <section class="reports-grid">
-
-        <!-- R1: Resolution Time -->
         <article class="report-card">
-          <header class="report-card-header">
-            <span class="report-icon">⏱️</span>
-            <h3>Resolution Time Report</h3>
-          </header>
-          <p class="report-description">Measures average time from ticket creation to resolution per technician, department, and priority level.</p>
+          <header class="report-card-header"><span class="report-icon">⏱️</span><h3>Resolution Time Report</h3></header>
+          <p class="report-description">Average time from ticket creation to resolution per technician and priority level.</p>
           <section class="report-stats">
-            <div class="report-stat">
-              <span class="report-stat-number" id="avgResolutionTime">—</span>
-              <span class="report-stat-label">Avg. Resolution Time</span>
-            </div>
-            <div class="report-stat">
-              <span class="report-stat-number" id="slaCompliance">—</span>
-              <span class="report-stat-label">Within SLA</span>
-            </div>
+            <div class="report-stat"><span class="report-stat-number" id="avgResolutionTime">—</span><span class="report-stat-label">Avg. Resolution Time</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="slaCompliance">—</span><span class="report-stat-label">Within SLA</span></div>
           </section>
-          <button class="btn-report" onclick="generateReport('Resolution Time Report')">Generate Report</button>
+          <button class="btn-report" onclick="generateReport('resolution')">Generate Report</button>
         </article>
 
-        <!-- R2: Call Volume -->
         <article class="report-card">
-          <header class="report-card-header">
-            <span class="report-icon">📞</span>
-            <h3>Call Volume Report</h3>
-          </header>
-          <p class="report-description">Provides statistics on the number of incidents logged per day, week, or month broken down by category and location.</p>
+          <header class="report-card-header"><span class="report-icon">📞</span><h3>Call Volume Report</h3></header>
+          <p class="report-description">Number of incidents logged broken down by category and location.</p>
           <section class="report-stats">
-            <div class="report-stat">
-              <span class="report-stat-number" id="totalIncidents">—</span>
-              <span class="report-stat-label">Total Incidents</span>
-            </div>
-            <div class="report-stat">
-              <span class="report-stat-number" id="openIncidents">—</span>
-              <span class="report-stat-label">Currently Open</span>
-            </div>
+            <div class="report-stat"><span class="report-stat-number" id="totalIncidents">—</span><span class="report-stat-label">Total Incidents</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="openIncidents">—</span><span class="report-stat-label">Currently Open</span></div>
           </section>
-          <button class="btn-report" onclick="generateReport('Call Volume Report')">Generate Report</button>
+          <button class="btn-report" onclick="generateReport('volume')">Generate Report</button>
         </article>
 
-        <!-- R3: Priority Analysis -->
         <article class="report-card">
-          <header class="report-card-header">
-            <span class="report-icon">🎯</span>
-            <h3>Priority Analysis Report</h3>
-          </header>
-          <p class="report-description">Summarises distribution of incidents by urgency level — identifying which areas generate the highest critical calls.</p>
+          <header class="report-card-header"><span class="report-icon">🎯</span><h3>Priority Analysis Report</h3></header>
+          <p class="report-description">Distribution of incidents by urgency level identifying highest risk areas.</p>
           <section class="report-stats">
-            <div class="report-stat">
-              <span class="report-stat-number" id="criticalCount">—</span>
-              <span class="report-stat-label">Critical Incidents</span>
-            </div>
-            <div class="report-stat">
-              <span class="report-stat-number" id="escalatedCount">—</span>
-              <span class="report-stat-label">Escalated</span>
-            </div>
+            <div class="report-stat"><span class="report-stat-number" id="criticalCount">—</span><span class="report-stat-label">Critical Incidents</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="escalatedCount">—</span><span class="report-stat-label">Escalated</span></div>
           </section>
-          <button class="btn-report" onclick="generateReport('Priority Analysis Report')">Generate Report</button>
+          <button class="btn-report" onclick="generateReport('priority')">Generate Report</button>
         </article>
 
-        <!-- R4: Incident History -->
         <article class="report-card">
-          <header class="report-card-header">
-            <span class="report-icon">📋</span>
-            <h3>Incident History Report</h3>
-          </header>
-          <p class="report-description">A comprehensive record of all calls — outstanding, in progress, and resolved — with full audit trail per ticket.</p>
+          <header class="report-card-header"><span class="report-icon">📋</span><h3>Incident History Report</h3></header>
+          <p class="report-description">Complete record of all incidents with full audit trail per ticket.</p>
           <section class="report-stats">
-            <div class="report-stat">
-              <span class="report-stat-number" id="resolvedCount">—</span>
-              <span class="report-stat-label">Resolved</span>
-            </div>
-            <div class="report-stat">
-              <span class="report-stat-number" id="outstandingCount">—</span>
-              <span class="report-stat-label">Outstanding</span>
-            </div>
+            <div class="report-stat"><span class="report-stat-number" id="resolvedCount">—</span><span class="report-stat-label">Resolved</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="outstandingCount">—</span><span class="report-stat-label">Outstanding</span></div>
           </section>
-          <button class="btn-report" onclick="generateReport('Incident History Report')">Generate Report</button>
+          <button class="btn-report" onclick="generateReport('history')">Generate Report</button>
         </article>
 
-        <!-- R5: Technician Performance -->
         <article class="report-card">
-          <header class="report-card-header">
-            <span class="report-icon">👤</span>
-            <h3>Technician Performance Report</h3>
-          </header>
-          <p class="report-description">Evaluates individual technician productivity by comparing workload, average resolution time, and completion rates.</p>
+          <header class="report-card-header"><span class="report-icon">👤</span><h3>Technician Performance Report</h3></header>
+          <p class="report-description">Individual technician productivity, workload and resolution times.</p>
           <section class="report-stats">
-            <div class="report-stat">
-              <span class="report-stat-number" id="topPerformer">—</span>
-              <span class="report-stat-label">Top Performer</span>
-            </div>
-            <div class="report-stat">
-              <span class="report-stat-number" id="bestAvgTime">—</span>
-              <span class="report-stat-label">Best Avg. Time</span>
-            </div>
+            <div class="report-stat"><span class="report-stat-number" id="topPerformer">—</span><span class="report-stat-label">Top Performer</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="bestAvgTime">—</span><span class="report-stat-label">Best Avg. Time</span></div>
           </section>
-          <button class="btn-report" onclick="generateReport('Technician Performance Report')">Generate Report</button>
+          <button class="btn-report" onclick="generateReport('performance')">Generate Report</button>
         </article>
+      </section>
 
+      <!-- Report Results Table -->
+      <section class="table-section" id="reportResults" style="display:none;">
+        <header class="table-header">
+          <h2 id="reportResultsTitle">Report Results</h2>
+          <button class="btn-secondary" onclick="exportCSV()">📥 Export as CSV</button>
+        </header>
+        <div id="reportTableContainer"></div>
       </section>
 
       <!-- Export -->
       <section class="export-section">
         <h2>Export Data</h2>
-        <p>Download incident data in your preferred format</p>
+        <p>Download all incident data in your preferred format</p>
         <section class="export-buttons">
-          <button class="btn-export" onclick="exportData('CSV')">📥 Export as CSV</button>
-          <button class="btn-export" onclick="exportData('PDF')">📄 Export as PDF</button>
+          <button class="btn-export" onclick="exportCSV()">📥 Export as CSV</button>
+          <button class="btn-export" onclick="exportPDF()">📄 Export as PDF</button>
         </section>
       </section>
 
     </main>
   </section>
 
-  <!-- Report Modal -->
-  <dialog id="reportModal" class="modal">
-    <section class="modal-content">
-      <header class="modal-header">
-        <h2 id="reportModalTitle"></h2>
-        <button class="modal-close" onclick="closeReportModal()">✕</button>
-      </header>
-      <section class="report-modal-body">
-        <p id="reportModalMessage"></p>
-        <section class="report-modal-stats">
-          <article class="report-modal-stat">
-            <span class="stat-number" id="modalTotal">—</span>
-            <span class="stat-label">Total Tickets</span>
-          </article>
-          <article class="report-modal-stat">
-            <span class="stat-number" id="modalResolved">—</span>
-            <span class="stat-label">Resolved</span>
-          </article>
-          <article class="report-modal-stat">
-            <span class="stat-number" id="modalAvgTime">—</span>
-            <span class="stat-label">Avg Time</span>
-          </article>
-          <article class="report-modal-stat">
-            <span class="stat-number" id="modalSLA">—</span>
-            <span class="stat-label">SLA Met</span>
-          </article>
-        </section>
-      </section>
-      <section class="form-actions">
-        <button class="btn-secondary" onclick="closeReportModal()">Close</button>
-        <button class="btn-primary" onclick="exportData('CSV')">📥 Export CSV</button>
-      </section>
-    </section>
-  </dialog>
-
   <script src="../assets/js/main.js"></script>
   <script>
     checkAccess();
-    loadReportStats();
+
+    let allIncidents = [];
+    let allPerformance = [];
 
     async function loadReportStats() {
       try {
-        const [summary, incidents] = await Promise.all([
+        const [summary, incData, perfData] = await Promise.all([
           apiFetch('/dashboard/summary'),
-          apiFetch('/incidents')
+          apiFetch('/incidents'),
+          apiFetch('/reports/technician-performance')
         ]);
 
         const s   = summary.summary;
-        const inc = incidents.incidents || [];
+        allIncidents   = incData.incidents || [];
+        allPerformance = perfData.performance || [];
 
-        // R1 - Resolution time
         document.getElementById('avgResolutionTime').textContent = s.avgResolutionHrs ? `${s.avgResolutionHrs}h` : '—';
         document.getElementById('slaCompliance').textContent     = s.slaCompliance ? `${s.slaCompliance}%` : '—';
+        document.getElementById('totalIncidents').textContent    = s.total || '0';
+        document.getElementById('openIncidents').textContent     = s.open || '0';
+        document.getElementById('criticalCount').textContent     = allIncidents.filter(i=>i.priority==='critical').length;
+        document.getElementById('escalatedCount').textContent    = s.escalated || '0';
+        document.getElementById('resolvedCount').textContent     = (s.resolved||0) + (s.closed||0);
+        document.getElementById('outstandingCount').textContent  = (s.open||0) + (s.inProgress||0);
 
-        // R2 - Call volume
-        document.getElementById('totalIncidents').textContent = s.total || '0';
-        document.getElementById('openIncidents').textContent  = s.open || '0';
-
-        // R3 - Priority analysis
-        const critical  = inc.filter(i => i.priority === 'critical').length;
-        document.getElementById('criticalCount').textContent  = critical;
-        document.getElementById('escalatedCount').textContent = s.escalated || '0';
-
-        // R4 - Incident history
-        document.getElementById('resolvedCount').textContent    = (s.resolved || 0) + (s.closed || 0);
-        document.getElementById('outstandingCount').textContent = (s.open || 0) + (s.inProgress || 0);
-
-        // R5 - Technician performance
-        const techData = await apiFetch('/reports/technician-performance');
-        const perfs    = techData.performance || [];
-        if (perfs.length > 0) {
-          const top = perfs.sort((a,b) => b.totalResolved - a.totalResolved)[0];
+        if (allPerformance.length > 0) {
+          const top = allPerformance.sort((a,b) => b.totalResolved - a.totalResolved)[0];
           document.getElementById('topPerformer').textContent = top.fullName.split(' ')[0] || '—';
           document.getElementById('bestAvgTime').textContent  = top.avgResolutionHrs ? `${top.avgResolutionHrs}h` : '—';
         }
-
-        // Update modal stats
-        document.getElementById('modalTotal').textContent    = s.total || '0';
-        document.getElementById('modalResolved').textContent = (s.resolved || 0) + (s.closed || 0);
-        document.getElementById('modalAvgTime').textContent  = s.avgResolutionHrs ? `${s.avgResolutionHrs}h` : '—';
-        document.getElementById('modalSLA').textContent      = s.slaCompliance ? `${s.slaCompliance}%` : '—';
-
-      } catch(e) {
-        console.error('Report stats error:', e);
-      }
+      } catch(e) { console.error('Report stats:', e); }
     }
 
-    function handleFilter(event) {
+    loadReportStats();
+
+    function applyFilter(event) {
       event.preventDefault();
       loadReportStats();
-      alert('Report filters applied successfully!');
     }
 
-    function generateReport(name) {
-      document.getElementById('reportModalTitle').textContent   = name;
-      document.getElementById('reportModalMessage').textContent = `Live data for: ${name}`;
-      document.getElementById('reportModal').showModal();
+    function getFilteredIncidents() {
+      const priority = document.getElementById('reportPriority').value;
+      const status   = document.getElementById('reportStatus').value;
+      const dateFrom = document.getElementById('dateFrom').value;
+      const dateTo   = document.getElementById('dateTo').value;
+
+      return allIncidents.filter(i => {
+        if (priority !== 'all' && i.priority !== priority) return false;
+        if (status !== 'all' && i.status !== status) return false;
+        if (dateFrom && new Date(i.date_logged) < new Date(dateFrom)) return false;
+        if (dateTo && new Date(i.date_logged) > new Date(dateTo+'T23:59:59')) return false;
+        return true;
+      });
     }
 
-    function closeReportModal() { document.getElementById('reportModal').close(); }
-    function exportData(fmt)    { alert(`Exporting data as ${fmt}...`); }
+    function generateReport(type) {
+      const results = document.getElementById('reportResults');
+      const container = document.getElementById('reportTableContainer');
+      const title = document.getElementById('reportResultsTitle');
+      results.style.display = 'block';
+
+      const inc = getFilteredIncidents();
+
+      if (type === 'resolution') {
+        title.textContent = '⏱️ Resolution Time Report';
+        const resolved = inc.filter(i => i.date_resolved);
+        container.innerHTML = `
+          <table class="tickets-table">
+            <thead><tr><th>Ticket No.</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Date Logged</th><th>Date Resolved</th><th>Time Taken</th><th>SLA</th></tr></thead>
+            <tbody>${resolved.length ? resolved.map(i => {
+              const hrs = i.date_resolved ? Math.round(((new Date(i.date_resolved)-new Date(i.date_logged))/3600000)*10)/10 : '—';
+              return `<tr>
+                <td>${i.ticket_number}</td>
+                <td><span class="badge ${i.priority}">${i.priority}</span></td>
+                <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
+                <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+                <td>${formatDate(i.date_logged)}</td>
+                <td>${formatDate(i.date_resolved)}</td>
+                <td>${hrs}h</td>
+                <td><span class="sla-badge ${i.sla_breached?'breached':'within'}">${i.sla_breached?'Breached':'Within SLA'}</span></td>
+              </tr>`;
+            }).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">No resolved tickets found.</td></tr>'}</tbody>
+          </table>`;
+
+      } else if (type === 'volume') {
+        title.textContent = '📞 Call Volume Report';
+        const byCat = {};
+        inc.forEach(i => { const c = i.categories?.category_name||'Other'; byCat[c] = (byCat[c]||0)+1; });
+        container.innerHTML = `
+          <table class="tickets-table">
+            <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Location</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>${inc.length ? inc.map(i=>`<tr>
+              <td>${i.ticket_number}</td>
+              <td>${i.description.substring(0,40)}...</td>
+              <td>${i.categories?.category_name||'—'}</td>
+              <td>${i.locations?.location_name||'—'}</td>
+              <td><span class="badge ${i.priority}">${i.priority}</span></td>
+              <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
+              <td>${formatDate(i.date_logged)}</td>
+            </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'}</tbody>
+          </table>`;
+
+      } else if (type === 'priority') {
+        title.textContent = '🎯 Priority Analysis Report';
+        container.innerHTML = `
+          <table class="tickets-table">
+            <thead><tr><th>Ticket No.</th><th>Description</th><th>Priority</th><th>Status</th><th>Location</th><th>Assigned To</th><th>Date</th></tr></thead>
+            <tbody>${inc.length ? inc.sort((a,b)=>['critical','high','medium','low'].indexOf(a.priority)-['critical','high','medium','low'].indexOf(b.priority)).map(i=>`<tr>
+              <td>${i.ticket_number}</td>
+              <td>${i.description.substring(0,40)}...</td>
+              <td><span class="badge ${i.priority}">${i.priority}</span></td>
+              <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
+              <td>${i.locations?.location_name||'—'}</td>
+              <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+              <td>${formatDate(i.date_logged)}</td>
+            </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'}</tbody>
+          </table>`;
+
+      } else if (type === 'history') {
+        title.textContent = '📋 Incident History Report';
+        container.innerHTML = `
+          <table class="tickets-table">
+            <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Date Logged</th><th>Date Closed</th></tr></thead>
+            <tbody>${inc.length ? inc.map(i=>`<tr>
+              <td>${i.ticket_number}</td>
+              <td>${i.description.substring(0,35)}...</td>
+              <td>${i.categories?.category_name||'—'}</td>
+              <td><span class="badge ${i.priority}">${i.priority}</span></td>
+              <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
+              <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+              <td>${formatDate(i.date_logged)}</td>
+              <td>${formatDate(i.date_closed)}</td>
+            </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'}</tbody>
+          </table>`;
+
+      } else if (type === 'performance') {
+        title.textContent = '👤 Technician Performance Report';
+        container.innerHTML = `
+          <table class="tickets-table">
+            <thead><tr><th>Technician</th><th>Assigned</th><th>Resolved</th><th>Avg Resolution Time</th><th>SLA Compliance</th><th>Avg Rating</th><th>Status</th></tr></thead>
+            <tbody>${allPerformance.length ? allPerformance.map(t=>`<tr>
+              <td><strong>${t.fullName}</strong></td>
+              <td>${t.totalAssigned}</td>
+              <td>${t.totalResolved}</td>
+              <td>${t.avgResolutionHrs?t.avgResolutionHrs+'h':'—'}</td>
+              <td>${t.slaCompliancePct?t.slaCompliancePct+'%':'—'}</td>
+              <td>${t.avgRating?'⭐ '+t.avgRating:'—'}</td>
+              <td><span class="badge ${t.availability==='available'?'low':t.availability==='moderate'?'medium':'critical'}">${t.availability}</span></td>
+            </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No technician data found.</td></tr>'}</tbody>
+          </table>`;
+      }
+
+      results.scrollIntoView({ behavior:'smooth' });
+    }
+
+    function exportCSV() {
+      const inc = getFilteredIncidents();
+      if (!inc.length) { alert('No data to export.'); return; }
+
+      const headers = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Resolved'];
+      const rows = inc.map(i => [
+        i.ticket_number,
+        `"${i.description.replace(/"/g,'""')}"`,
+        i.categories?.category_name||'',
+        i.locations?.location_name||'',
+        i.priority,
+        i.status,
+        i.assigned_user?.full_name||'Unassigned',
+        formatDate(i.date_logged),
+        formatDate(i.date_resolved)
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+      const blob = new Blob([csv], { type:'text/csv' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `WitsCPS_Report_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportPDF() { alert('PDF export — print this page using Ctrl+P and select "Save as PDF".'); }
+
+    function handleFilter(e) { e.preventDefault(); applyFilter(e); }
+    function generateReport_old(name) {}
+    function exportData(fmt) { if(fmt==='CSV') exportCSV(); else exportPDF(); }
   </script>
 </body>
 </html>
