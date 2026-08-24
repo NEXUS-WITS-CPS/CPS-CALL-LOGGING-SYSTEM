@@ -17,7 +17,7 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 const roleAccess = {
-  admin:      ['dashboard.html','log-incident.html','assign-incident.html','resolve-incident.html','escalate-incident.html','track-incident.html','reports.html'],
+  admin: ['dashboard.html','assign-incident.html','escalate-incident.html','track-incident.html','reports.html'],
   officer:    ['officer-dashboard.html','log-incident.html','track-incident.html'],
   technician: ['technician-dashboard.html','resolve-incident.html','escalate-incident.html','track-incident.html']
 };
@@ -25,9 +25,7 @@ const roleAccess = {
 const roleSidebar = {
   admin: `<ul>
     <li><a href="dashboard.html">🏠 Dashboard</a></li>
-    <li><a href="log-incident.html">📋 Log Incident</a></li>
     <li><a href="assign-incident.html">👤 Assign Incident</a></li>
-    <li><a href="resolve-incident.html">✅ Resolve Incident</a></li>
     <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
     <li><a href="track-incident.html">🔍 Track Incident</a></li>
     <li><a href="reports.html">📊 Reports</a></li>
@@ -157,7 +155,7 @@ function renderTable(incidents, role) {
     const pri  = i.priority.charAt(0).toUpperCase()+i.priority.slice(1);
     const esc  = i.description.replace(/'/g,"\\'");
 
-    let action = `<a href="track-incident.html" class="btn-assign">View</a>`;
+    let action = `<a href="track-incident.html?ticket=${i.ticket_number}" class="btn-assign">View</a>`;
     if (i.status === 'open' && (role==='admin'||role==='officer')) {
       action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
     } else if (i.status === 'in_progress' && (role==='admin'||role==='technician')) {

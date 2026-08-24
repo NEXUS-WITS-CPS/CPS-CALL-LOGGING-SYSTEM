@@ -193,6 +193,13 @@
         document.getElementById('ticketDetail').scrollIntoView({ behavior:'smooth' });
       } catch(err) { alert(err.message||'Ticket not found.'); }
     }
+    // Auto-search if ticket param in URL
+const urlParams = new URLSearchParams(window.location.search);
+const ticketParam = urlParams.get('ticket');
+if (ticketParam) {
+  document.getElementById('searchTicket').value = ticketParam;
+  handleSearch({ preventDefault: ()=>{} });
+}
   </script>
 </body>
 </html>
