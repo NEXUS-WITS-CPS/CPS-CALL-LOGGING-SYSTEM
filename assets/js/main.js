@@ -156,15 +156,17 @@ function renderTable(incidents, role) {
     const esc  = i.description.replace(/'/g,"\\'");
 
     let action = `<a href="track-incident.html?ticket=${i.ticket_number}" class="btn-assign">View</a>`;
-    if (i.status === 'open' && (role==='admin'||role==='officer')) {
-      action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
-    } else if (i.status === 'in_progress' && (role==='admin'||role==='technician')) {
-      action = `<button class="btn-assign" onclick="openResolveModal('${i.ticket_number}','${esc}','${i.priority}','${asgn}')">Resolve</button>`;
-    } else if (i.status === 'pending_confirmation' && (role==='admin'||role==='officer')) {
-      action = `<button class="btn-assign" style="background:#e0f2fe;color:#0369a1;" onclick="openConfirmModal('${i.ticket_number}','${esc}')">✅ Confirm</button>`;
-    } else if (i.status === 'escalated' && role==='admin') {
-      action = `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Re-assign</button>`;
-    }
+if (i.status === 'open' && role==='admin') {
+  action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
+} else if (i.status === 'open' && role==='officer') {
+  action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
+} else if (i.status === 'in_progress' && role==='technician') {
+  action = `<button class="btn-assign" onclick="openResolveModal('${i.ticket_number}','${esc}','${i.priority}','${asgn}')">Resolve</button>`;
+} else if (i.status === 'pending_confirmation' && role==='officer') {
+  action = `<button class="btn-assign" style="background:#e0f2fe;color:#0369a1;" onclick="openConfirmModal('${i.ticket_number}','${esc}')">✅ Confirm</button>`;
+} else if (i.status === 'escalated' && role==='admin') {
+  action = `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Re-assign</button>`;
+}
 
     return `<tr>
       <td>${i.ticket_number}</td>
