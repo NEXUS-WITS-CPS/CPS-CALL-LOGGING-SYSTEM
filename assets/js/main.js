@@ -390,25 +390,55 @@ function showRejectForm() {
 }
 
 async function submitConfirm(action) {
-  const rating=document.getElementById('confirmRating')?.value;
-  const feedback=document.getElementById('confirmFeedback')?.value.trim();
-  const rejectReason=document.getElementById('rejectReason')?.value.trim();
-  const errEl=document.getElementById('confirmErrorMsg');
-  errEl.textContent='';
-  if (action==='reject' && !rejectReason) { errEl.textContent='Please provide a reason for rejecting the resolution.'; return; }
-  try {
-    const data=await apiFetch(`/incidents/${currentConfirmTicket}/confirm`, {
-      method:'PATCH',
-      body:JSON.stringify({ action, satisfactionRating:rating||null, feedback:feedback||null, rejectionReason:rejectReason||null })
-    });
-    document.getElementById('confirmModal').close();
-    const successEl=document.getElementById('successMessage');
-    if (successEl) {
-      successEl.textContent=action==='accept'?`Ticket ${currentConfirmTicket} confirmed and closed successfully!`:`Ticket ${currentConfirmTicket} rejected and reopened.`;
-      successEl.style.display='block';
-      setTimeout(()=>{ successEl.style.display='none'; loadAdminDashboard(); }, 4000);
+  const rating = document.getElementById('confirmRating')?.value;
+  const feedback = document.getElementById('confirmFeedback')?.value.trim();
+  const rejectReason = document.getElementById('rejectReason')?.value.trim();
+  const errEl = document.getElementById('confirmErrorMsg');
+  errEl.textContent = '';
+
+  if (action === 'reject') {
+    if (!rejectReason) {
+      errEl.textContent = 'Please provide a reason for rejecting the resolution.';
+      return;
     }
-  } catch(err) { document.getElementById('confirmErrorMsg').textContent=err.message||'Failed to process confirmation.'; }
+  }
+
+  const btn = action === 'accept'
+    ? document.querySelector('#confirmModal .btn-primary')
+    : document.querySelector('#confirmModal .btn-secondary');
+  if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
+
+  try {
+    await apiFetch(`/incidents/${currentConfirmTicket}/confirm`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        action,
+        satisfactionRating: rating || null,
+        feedback: feedback || null,
+        rejectionReason: action === 'reject' ? rejectReason : null
+      })
+    });
+
+    document.getElementById('confirmModal').close();
+    const successEl = document.getElementById('successMessage');
+    if (successEl) {
+      successEl.textContent = action === 'accept'
+        ? `✅ Ticket ${currentConfirmTicket} confirmed and closed successfully!`
+        : `🔄 Ticket ${currentConfirmTicket} rejected and reopened. Technician has been notified.`;
+      successEl.style.display = 'block';
+      setTimeout(() => {
+        successEl.style.display = 'none';
+        if (window.location.pathname.includes('officer-dashboard')) {
+          loadOfficerDashboard();
+        } else {
+          loadAdminDashboard();
+        }
+      }, 4000);
+    }
+  } catch(err) {
+    errEl.textContent = err.message || 'Failed to process. Please try again.';
+    if (btn) { btn.textContent = action === 'accept' ? '✅ Accept & Close' : '🔄 Reject & Reopen'; btn.disabled = false; }
+  }
 }
 
 // ── UC6 ESCALATE ──
