@@ -174,7 +174,11 @@ if (i.status === 'open' && role==='admin') {
 } else if (i.status === 'in_progress' && role==='technician') {
   action = `<button class="btn-assign" onclick="openResolveModal('${i.ticket_number}','${esc}','${i.priority}','${asgn}')">Resolve</button>`;
 } else if (i.status === 'pending_confirmation' && role==='officer') {
-  action = `<button class="btn-assign" style="background:#e0f2fe;color:#0369a1;" onclick="openConfirmModal('${i.ticket_number}','${esc}')">✅ Confirm</button>`;
+  action = `
+    <div style="display:flex;gap:6px;">
+      <button class="btn-assign" style="background:#16a34a;color:white;border-color:#16a34a;" onclick="openConfirmModal('${i.ticket_number}','${esc}')">✅ Confirm</button>
+      <button class="btn-assign" style="background:#dc2626;color:white;border-color:#dc2626;" onclick="openRejectModal('${i.ticket_number}','${esc}')">🔄 Reject</button>
+    </div>`;
 } else if (i.status === 'escalated' && role==='admin') {
   action = `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Re-assign</button>`;
 }
@@ -452,16 +456,17 @@ async function handleResolveIncident(event) {
 // ── UC3 CONFIRM / CLOSE ──
 let currentConfirmTicket='';
 function openConfirmModal(tn, desc) {
-  currentConfirmTicket=tn;
-  const existing=document.getElementById('confirmModal');
-  if (existing) { existing.remove(); }
-  const modal=document.createElement('dialog');
-  modal.id='confirmModal';
-  modal.className='modal';
-  modal.innerHTML=`
+  currentConfirmTicket = tn;
+  const existing = document.getElementById('confirmModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('dialog');
+  modal.id = 'confirmModal';
+  modal.className = 'modal';
+  modal.innerHTML = `
     <section class="modal-content">
       <header class="modal-header">
-        <h2>Confirm / Close Incident</h2>
+        <h2>✅ Confirm & Close Incident</h2>
         <button class="modal-close" onclick="document.getElementById('confirmModal').close()">✕</button>
       </header>
       <section class="modal-ticket-info">
@@ -469,7 +474,7 @@ function openConfirmModal(tn, desc) {
         <p><strong>Description:</strong> ${desc}</p>
       </section>
       <div style="padding:16px 0;">
-        <p style="font-size:13.5px;color:#333;margin-bottom:16px;">The technician has resolved this incident. Please review and confirm or reject the resolution.</p>
+        <p style="font-size:13.5px;color:#333;margin-bottom:16px;">Are you satisfied with the resolution? Confirming will permanently close this ticket.</p>
         <div class="form-group" style="margin-bottom:14px;">
           <label for="confirmRating">Satisfaction Rating (Optional)</label>
           <select id="confirmRating" style="width:100%;padding:9px 14px;border:1.5px solid #d1d5db;border-radius:6px;font-size:13.5px;">
@@ -485,19 +490,88 @@ function openConfirmModal(tn, desc) {
           <label for="confirmFeedback">Feedback (Optional)</label>
           <textarea id="confirmFeedback" rows="2" placeholder="Any additional comments..." style="width:100%;padding:9px 14px;border:1.5px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;"></textarea>
         </div>
-        <div class="form-group" id="rejectReasonGroup" style="display:none;margin-bottom:14px;">
-          <label for="rejectReason">Rejection Reason <span style="color:red;">*</span></label>
-          <textarea id="rejectReason" rows="2" placeholder="Why is the resolution unsatisfactory?" style="width:100%;padding:9px 14px;border:1.5px solid #fca5a5;border-radius:6px;font-size:13px;font-family:inherit;"></textarea>
-        </div>
         <p id="confirmErrorMsg" style="color:red;font-size:13px;min-height:18px;"></p>
       </div>
-      <section class="form-actions" style="gap:10px;">
-        <button class="btn-secondary" onclick="showRejectForm()">🔄 Reject & Reopen</button>
-        <button class="btn-primary" onclick="submitConfirm('accept')">✅ Accept & Close</button>
+      <section class="form-actions">
+        <button class="btn-secondary" onclick="document.getElementById('confirmModal').close()">Cancel</button>
+        <button class="btn-primary" style="background:#16a34a;border-color:#16a34a;" onclick="submitConfirm('accept')">✅ Accept & Close</button>
       </section>
     </section>`;
   document.body.appendChild(modal);
   modal.showModal();
+}
+
+function openRejectModal(tn, desc) {
+  currentConfirmTicket = tn;
+  const existing = document.getElementById('rejectModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('dialog');
+  modal.id = 'rejectModal';
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <section class="modal-content">
+      <header class="modal-header">
+        <h2>🔄 Reject & Reopen Incident</h2>
+        <button class="modal-close" onclick="document.getElementById('rejectModal').close()">✕</button>
+      </header>
+      <section class="modal-ticket-info">
+        <p><strong>Ticket:</strong> ${tn}</p>
+        <p><strong>Description:</strong> ${desc}</p>
+      </section>
+      <div style="padding:16px 0;">
+        <p style="font-size:13.5px;color:#333;margin-bottom:16px;">The ticket will be reopened and the technician notified with your reason.</p>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label for="rejectReason">Reason for Rejection <span style="color:red;">*</span></label>
+          <textarea id="rejectReason" rows="3" placeholder="Why is the resolution unsatisfactory? Please be specific..." style="width:100%;padding:9px 14px;border:1.5px solid #fca5a5;border-radius:6px;font-size:13px;font-family:inherit;"></textarea>
+        </div>
+        <p id="rejectErrorMsg" style="color:red;font-size:13px;min-height:18px;"></p>
+      </div>
+      <section class="form-actions">
+        <button class="btn-secondary" onclick="document.getElementById('rejectModal').close()">Cancel</button>
+        <button class="btn-primary" style="background:#dc2626;border-color:#dc2626;" onclick="submitReject()">🔄 Reject & Reopen</button>
+      </section>
+    </section>`;
+  document.body.appendChild(modal);
+  modal.showModal();
+}
+
+async function submitReject() {
+  const rejectReason = document.getElementById('rejectReason')?.value.trim();
+  const errEl = document.getElementById('rejectErrorMsg');
+  errEl.textContent = '';
+
+  if (!rejectReason) {
+    errEl.textContent = 'Please provide a reason for rejecting the resolution.';
+    return;
+  }
+
+  const btn = document.querySelector('#rejectModal .btn-primary');
+  if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
+
+  try {
+    await apiFetch(`/incidents/${currentConfirmTicket}/confirm`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        action: 'reject',
+        rejectionReason: rejectReason
+      })
+    });
+
+    document.getElementById('rejectModal').close();
+    const successEl = document.getElementById('successMessage');
+    if (successEl) {
+      successEl.textContent = `🔄 Ticket ${currentConfirmTicket} rejected and reopened. Technician has been notified.`;
+      successEl.style.display = 'block';
+      setTimeout(() => {
+        successEl.style.display = 'none';
+        loadOfficerDashboard();
+      }, 4000);
+    }
+  } catch(err) {
+    errEl.textContent = err.message || 'Failed to reject. Please try again.';
+    if (btn) { btn.textContent = '🔄 Reject & Reopen'; btn.disabled = false; }
+  }
 }
 
 function showRejectForm() {
@@ -508,52 +582,35 @@ function showRejectForm() {
 async function submitConfirm(action) {
   const rating = document.getElementById('confirmRating')?.value;
   const feedback = document.getElementById('confirmFeedback')?.value.trim();
-  const rejectReason = document.getElementById('rejectReason')?.value.trim();
   const errEl = document.getElementById('confirmErrorMsg');
   errEl.textContent = '';
 
-  if (action === 'reject') {
-    if (!rejectReason) {
-      errEl.textContent = 'Please provide a reason for rejecting the resolution.';
-      return;
-    }
-  }
-
-  const btn = action === 'accept'
-    ? document.querySelector('#confirmModal .btn-primary')
-    : document.querySelector('#confirmModal .btn-secondary');
+  const btn = document.querySelector('#confirmModal .btn-primary');
   if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
 
   try {
     await apiFetch(`/incidents/${currentConfirmTicket}/confirm`, {
       method: 'PATCH',
       body: JSON.stringify({
-        action,
+        action: 'accept',
         satisfactionRating: rating || null,
-        feedback: feedback || null,
-        rejectionReason: action === 'reject' ? rejectReason : null
+        feedback: feedback || null
       })
     });
 
     document.getElementById('confirmModal').close();
     const successEl = document.getElementById('successMessage');
     if (successEl) {
-      successEl.textContent = action === 'accept'
-        ? `✅ Ticket ${currentConfirmTicket} confirmed and closed successfully!`
-        : `🔄 Ticket ${currentConfirmTicket} rejected and reopened. Technician has been notified.`;
+      successEl.textContent = `✅ Ticket ${currentConfirmTicket} confirmed and closed successfully!`;
       successEl.style.display = 'block';
       setTimeout(() => {
         successEl.style.display = 'none';
-        if (window.location.pathname.includes('officer-dashboard')) {
-          loadOfficerDashboard();
-        } else {
-          loadAdminDashboard();
-        }
+        loadOfficerDashboard();
       }, 4000);
     }
   } catch(err) {
-    errEl.textContent = err.message || 'Failed to process. Please try again.';
-    if (btn) { btn.textContent = action === 'accept' ? '✅ Accept & Close' : '🔄 Reject & Reopen'; btn.disabled = false; }
+    errEl.textContent = err.message || 'Failed to confirm. Please try again.';
+    if (btn) { btn.textContent = '✅ Accept & Close'; btn.disabled = false; }
   }
 }
 
