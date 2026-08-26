@@ -132,12 +132,23 @@ async function loadTechDashboard() {
   try {
     const user = getUser();
     const r = await apiFetch('/incidents');
-    const inc = (r.incidents || []).filter(i => i.assigned_user?.user_id === user.userId || i.assigned_to === user.userId);
+    const all = (r.incidents || []);
+    // Only show tickets assigned to this technician
+    const inc = all.filter(i => 
+      i.assigned_user?.user_id === user.userId || 
+      i.assigned_to === user.userId
+    );
+
     const nums = document.querySelectorAll('.stat-number');
     if (nums[0]) nums[0].textContent = inc.length;
-    if (nums[1]) nums[1].textContent = inc.filter(i=>i.status==='open').length;
-    if (nums[2]) nums[2].textContent = inc.filter(i=>i.status==='in_progress').length;
-    if (nums[3]) nums[3].textContent = inc.filter(i=>['resolved','closed'].includes(i.status)).length;
+    if (nums[1]) nums[1].textContent = inc.filter(i => i.status === 'open').length;
+    if (nums[2]) nums[2].textContent = inc.filter(i => i.status === 'in_progress').length;
+    if (nums[3]) nums[3].textContent = inc.filter(i => ['resolved','pending_confirmation','closed'].includes(i.status)).length;
+
+    // Remove the badge count — it's redundant
+    const badge = document.querySelector('.badge-count');
+    if (badge) badge.style.display = 'none';
+
     renderTable(inc, 'technician');
   } catch(e) { console.error('Tech dashboard:', e); }
 }
