@@ -249,11 +249,58 @@ async function loadTechDropdown() {
 
 let currentTicket = '';
 function openAssignModal(tn, desc, pri) {
-  currentTicket=tn;
-  document.getElementById('modalTicketNumber').textContent=tn;
-  document.getElementById('modalDescription').textContent=desc;
-  document.getElementById('modalPriority').textContent=pri;
-  const p=document.getElementById('updatePriority'); if(p) p.value=pri.toLowerCase();
+  currentTicket = tn;
+  
+  // Create modal if it doesn't exist on this page
+  if (!document.getElementById('assignModal')) {
+    const modal = document.createElement('dialog');
+    modal.id = 'assignModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <section class="modal-content">
+        <header class="modal-header">
+          <h2>Assign Incident</h2>
+          <button class="modal-close" onclick="closeAssignModal()">✕</button>
+        </header>
+        <section class="modal-ticket-info">
+          <p><strong>Ticket:</strong> <span id="modalTicketNumber"></span></p>
+          <p><strong>Description:</strong> <span id="modalDescription"></span></p>
+          <p><strong>Priority:</strong> <span id="modalPriority"></span></p>
+        </section>
+        <form id="assignForm" onsubmit="handleAssignIncident(event)">
+          <div class="form-group">
+            <label for="assignTo">Assign To <span class="required">*</span></label>
+            <select id="assignTo"><option value="" disabled selected>Select officer / technician</option></select>
+          </div>
+          <div class="form-group">
+            <label for="updatePriority">Update Priority</label>
+            <select id="updatePriority">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="assignmentNotes">Assignment Notes</label>
+            <textarea id="assignmentNotes" rows="3" placeholder="Any notes for the technician..."></textarea>
+          </div>
+          <p id="assignErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
+          <section class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeAssignModal()">Cancel</button>
+            <button type="submit" class="btn-primary">Confirm Assignment</button>
+          </section>
+        </form>
+      </section>`;
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById('modalTicketNumber').textContent = tn;
+  document.getElementById('modalDescription').textContent  = desc;
+  document.getElementById('modalPriority').textContent     = pri;
+  const p = document.getElementById('updatePriority');
+  if (p) p.value = pri.toLowerCase();
+  loadTechDropdown();
   document.getElementById('assignModal').showModal();
 }
 function closeAssignModal() { document.getElementById('assignModal').close(); document.getElementById('assignForm')?.reset(); document.getElementById('assignErrorMessage').textContent=''; }
@@ -299,14 +346,72 @@ async function loadActiveTickets() {
 }
 
 let currentResolveTicket='';
-function openResolveModal(tn,desc,pri,asgn) {
-  currentResolveTicket=tn;
-  document.getElementById('resolveTicketNumber').textContent=tn;
-  document.getElementById('resolveDescription').textContent=desc;
-  document.getElementById('resolvePriority').textContent=pri;
-  document.getElementById('resolveAssignedTo').textContent=asgn;
+function openResolveModal(tn, desc, pri, asgn) {
+  currentResolveTicket = tn;
+
+  // Create modal if it doesn't exist on this page
+  if (!document.getElementById('resolveModal')) {
+    const modal = document.createElement('dialog');
+    modal.id = 'resolveModal';
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <section class="modal-content">
+        <header class="modal-header">
+          <h2>Resolve Incident</h2>
+          <button class="modal-close" onclick="closeResolveModal()">✕</button>
+        </header>
+        <section class="modal-ticket-info">
+          <p><strong>Ticket:</strong> <span id="resolveTicketNumber"></span></p>
+          <p><strong>Description:</strong> <span id="resolveDescription"></span></p>
+          <p><strong>Priority:</strong> <span id="resolvePriority"></span></p>
+          <p><strong>Assigned To:</strong> <span id="resolveAssignedTo"></span></p>
+        </section>
+        <form id="resolveForm" onsubmit="handleResolveIncident(event)">
+          <div class="form-group">
+            <label for="resolutionNotes">Resolution Notes <span class="required">*</span></label>
+            <textarea id="resolutionNotes" rows="4" placeholder="Describe what was done to resolve this incident (min 20 characters)..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="timeSpent">Time Spent <span class="required">*</span></label>
+            <select id="timeSpent">
+              <option value="" disabled selected>Select time spent</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+              <option value="240">4+ hours</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="internalNotes">Internal Notes (Optional)</label>
+            <textarea id="internalNotes" rows="2" placeholder="Any internal notes..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="resolveStatus">Resolution Status</label>
+            <select id="resolveStatus">
+              <option value="resolved">Resolved</option>
+              <option value="escalated">Escalated</option>
+            </select>
+          </div>
+          <p id="resolveErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
+          <section class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeResolveModal()">Cancel</button>
+            <button type="submit" class="btn-primary">Submit Resolution</button>
+          </section>
+        </form>
+      </section>`;
+    document.body.appendChild(modal);
+  }
+
+  document.getElementById('resolveTicketNumber').textContent = tn;
+  document.getElementById('resolveDescription').textContent  = desc;
+  document.getElementById('resolvePriority').textContent     = pri;
+  document.getElementById('resolveAssignedTo').textContent   = asgn;
   document.getElementById('resolveForm')?.reset();
-  document.getElementById('resolveErrorMessage').textContent='';
+  document.getElementById('resolveErrorMessage').textContent = '';
   document.getElementById('resolveModal').showModal();
 }
 function closeResolveModal() { document.getElementById('resolveModal').close(); document.getElementById('resolveForm')?.reset(); document.getElementById('resolveErrorMessage').textContent=''; }
