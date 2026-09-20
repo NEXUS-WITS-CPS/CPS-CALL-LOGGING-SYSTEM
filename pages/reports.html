@@ -37,6 +37,16 @@
         <form id="filterForm" onsubmit="applyFilter(event)">
           <section class="form-row">
             <div class="form-group">
+              <label for="datePreset">Reporting Period</label>
+              <select id="datePreset" onchange="applyPreset()">
+                <option value="custom">Custom range</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="month">This month</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="dateFrom">Date From</label>
               <input type="date" id="dateFrom" name="dateFrom" />
             </div>
@@ -60,7 +70,8 @@
                 <option value="all">All Statuses</option>
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
-                <option value="resolved">Resolved</option>
+                <option value="escalated">Escalated</option>
+                <option value="pending_confirmation">Pending Confirmation</option>
                 <option value="closed">Closed</option>
               </select>
             </div>
@@ -128,6 +139,7 @@
       <section class="table-section" id="reportResults" style="display:none;">
         <header class="table-header">
           <h2 id="reportResultsTitle">Report Results</h2>
+          <p id="reportPeriod" style="margin:4px 0 0;color:#555;font-size:0.9rem;"></p>
       
         </header>
         <div id="reportTableContainer"></div>
@@ -185,9 +197,28 @@
 
     loadReportStats();
 
+    function ymd(d){ return d.toISOString().split('T')[0]; }
+    function applyPreset() {
+      const p = document.getElementById('datePreset').value;
+      const from = document.getElementById('dateFrom'), to = document.getElementById('dateTo');
+      const now = new Date();
+      if (p === 'all') { from.value = ''; to.value = ''; }
+      else if (p === 'month') { from.value = ymd(new Date(now.getFullYear(), now.getMonth(), 1)); to.value = ymd(now); }
+      else if (p !== 'custom') { from.value = ymd(new Date(now.getTime() - Number(p)*86400000)); to.value = ymd(now); }
+    }
+    function periodLabel() {
+      const f = document.getElementById('dateFrom').value, t = document.getElementById('dateTo').value;
+      const pr = document.getElementById('reportPriority').selectedOptions[0].text;
+      const st = document.getElementById('reportStatus').selectedOptions[0].text;
+      const range = (f || t) ? `${f || 'earliest'} to ${t || 'today'}` : 'All time';
+      return `Period (date logged): ${range} | Priority: ${pr} | Status: ${st}`;
+    }
     function applyFilter(event) {
       event.preventDefault();
+      const f = document.getElementById('dateFrom').value, t = document.getElementById('dateTo').value;
+      if (f && t && f > t) { alert('Date From must be on or before Date To.'); return; }
       loadReportStats();
+      if (document.getElementById('reportResults').style.display === 'block' && window._lastReport) generateReport(window._lastReport);
     }
 
     function getFilteredIncidents() {
@@ -219,6 +250,8 @@
       const container = document.getElementById('reportTableContainer');
       const title = document.getElementById('reportResultsTitle');
       results.style.display = 'block';
+      window._lastReport = type;
+      document.getElementById('reportPeriod').textContent = periodLabel();
 
       const inc = getFilteredIncidents();
 
@@ -331,7 +364,7 @@
         formatDate(i.date_resolved)
       ]);
 
-      const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+      const csv = ['"' + periodLabel().replace(/"/g,'') + '"', headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
       const blob = new Blob([csv], { type:'text/csv' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -347,7 +380,7 @@
       const cell = v => `<td>${esc(String(v ?? '')).replace(/^([=+\-@])/, "'$1")}</td>`;
       const head = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Resolved','SLA Breached'];
       const rows = inc.map(i => '<tr>' + [i.ticket_number, i.description, i.categories?.category_name, i.locations?.location_name, i.priority, i.status, i.assigned_user?.full_name||'Unassigned', formatDate(i.date_logged), formatDate(i.date_resolved), i.sla_breached?'Yes':'No'].map(cell).join('') + '</tr>').join('');
-      const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows}</table></body></html>`;
+      const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><p>${esc(periodLabel())}</p><table border="1"><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows}</table></body></html>`;
       const url = URL.createObjectURL(new Blob([html], { type:'application/vnd.ms-excel' }));
       const a = document.createElement('a');
       a.href = url; a.download = `WitsCPS_Report_${new Date().toISOString().split('T')[0]}.xls`;
