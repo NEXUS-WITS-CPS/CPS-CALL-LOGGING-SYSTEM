@@ -139,6 +139,7 @@
         <p>Download all incident data in your preferred format</p>
         <section class="export-buttons">
           <button class="btn-export" onclick="exportCSV()">📥 Export as CSV</button>
+          <button class="btn-export" onclick="exportExcel()">📊 Export as Excel</button>
           <button class="btn-export" onclick="exportPDF()">📄 Export as PDF</button>
         </section>
       </section>
@@ -204,6 +205,15 @@
       });
     }
 
+    function tl(t){ return `<a href="track-incident.html?ticket=${encodeURIComponent(t)}" title="View ticket details and audit trail" style="color:#003B5C;font-weight:600;">${esc(t)}</a>`; }
+    function tally(list, keyFn) {
+      const m = {}; list.forEach(i => { const k = keyFn(i); m[k] = (m[k]||0)+1; }); return m;
+    }
+    function summaryStrip(label, m) {
+      const parts = Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<span class="badge medium" style="margin:2px 6px 2px 0;">${esc(k)}: ${v}</span>`).join('');
+      return `<p style="margin:0 0 12px;"><strong>${label}:</strong> ${parts || '—'}</p>`;
+    }
+
     function generateReport(type) {
       const results = document.getElementById('reportResults');
       const container = document.getElementById('reportTableContainer');
@@ -221,7 +231,7 @@
             <tbody>${resolved.length ? resolved.map(i => {
               const hrs = i.date_resolved ? Math.round(((toDate(i.date_resolved)-toDate(i.date_logged))/3600000)*10)/10 : '—';
               return `<tr>
-                <td>${esc(i.ticket_number)}</td>
+                <td>${tl(i.ticket_number)}</td>
                 <td><span class="badge ${i.priority}">${i.priority}</span></td>
                 <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
                 <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
@@ -237,11 +247,11 @@
         title.textContent = '📞 Call Volume Report';
         const byCat = {};
         inc.forEach(i => { const c = i.categories?.category_name||'Other'; byCat[c] = (byCat[c]||0)+1; });
-        container.innerHTML = `
+        container.innerHTML = summaryStrip('Calls by category', byCat) + summaryStrip('Calls by location', tally(inc, i => i.locations?.location_name||'Unknown')) + `
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Location</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>${inc.length ? inc.map(i=>`<tr>
-              <td>${esc(i.ticket_number)}</td>
+              <td>${tl(i.ticket_number)}</td>
               <td>${esc(i.description.substring(0,40))}...</td>
               <td>${esc(i.categories?.category_name||'—')}</td>
               <td>${esc(i.locations?.location_name||'—')}</td>
@@ -253,11 +263,11 @@
 
       } else if (type === 'priority') {
         title.textContent = '🎯 Priority Analysis Report';
-        container.innerHTML = `
+        container.innerHTML = summaryStrip('Tickets by priority', tally(inc, i => i.priority)) + `
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Priority</th><th>Status</th><th>Location</th><th>Assigned To</th><th>Date</th></tr></thead>
             <tbody>${inc.length ? inc.sort((a,b)=>['critical','high','medium','low'].indexOf(a.priority)-['critical','high','medium','low'].indexOf(b.priority)).map(i=>`<tr>
-              <td>${esc(i.ticket_number)}</td>
+              <td>${tl(i.ticket_number)}</td>
               <td>${esc(i.description.substring(0,40))}...</td>
               <td><span class="badge ${i.priority}">${i.priority}</span></td>
               <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
@@ -273,7 +283,7 @@
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Date Logged</th><th>Date Closed</th></tr></thead>
             <tbody>${inc.length ? inc.map(i=>`<tr>
-              <td>${esc(i.ticket_number)}</td>
+              <td>${tl(i.ticket_number)}</td>
               <td>${esc(i.description.substring(0,35))}...</td>
               <td>${esc(i.categories?.category_name||'—')}</td>
               <td><span class="badge ${i.priority}">${i.priority}</span></td>
@@ -329,6 +339,19 @@
       a.download = `WitsCPS_Report_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+    }
+
+    function exportExcel() {
+      const inc = getFilteredIncidents();
+      if (!inc.length) { alert('No data to export.'); return; }
+      const cell = v => `<td>${esc(String(v ?? '')).replace(/^([=+\-@])/, "'$1")}</td>`;
+      const head = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Resolved','SLA Breached'];
+      const rows = inc.map(i => '<tr>' + [i.ticket_number, i.description, i.categories?.category_name, i.locations?.location_name, i.priority, i.status, i.assigned_user?.full_name||'Unassigned', formatDate(i.date_logged), formatDate(i.date_resolved), i.sla_breached?'Yes':'No'].map(cell).join('') + '</tr>').join('');
+      const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>${rows}</table></body></html>`;
+      const url = URL.createObjectURL(new Blob([html], { type:'application/vnd.ms-excel' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `WitsCPS_Report_${new Date().toISOString().split('T')[0]}.xls`;
+      a.click(); URL.revokeObjectURL(url);
     }
 
     function exportPDF() { window.print(); }
