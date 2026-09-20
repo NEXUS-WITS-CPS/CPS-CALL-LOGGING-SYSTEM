@@ -1,4 +1,45 @@
-const API_BASE = 'https://cps-call-logging-system-production.up.railway.app/api';
+// ⚠️ After deploying the backend (e.g. on Render), set this to your new API URL — it must end in /api
+const API_BASE = 'https://wits-cps-api.onrender.com/api';
+
+// ── DATE HELPER ──
+// The database stores UTC timestamps without a timezone marker; add "Z" so browsers in South Africa (UTC+2)
+// don't read them as local time (which made SLA times and "time open" two hours wrong).
+function toDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const str = String(v);
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : str.replace(' ', 'T') + 'Z');
+}
+
+// ── SAFETY HELPERS ──
+// esc(): HTML-escape any text before putting it in innerHTML
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// q(): safe JS string literal for use inside an inline onclick="..." attribute
+function q(v) { return esc(JSON.stringify(String(v ?? ''))); }
+// getSuccessEl(): returns the page's #successMessage, creating one if the page has none (dashboards)
+function getSuccessEl() {
+  let el = document.getElementById('successMessage');
+  if (!el) {
+    el = document.createElement('p');
+    el.id = 'successMessage';
+    el.className = 'success-message';
+    const host = document.querySelector('.main-content') || document.body;
+    host.insertBefore(el, host.firstChild);
+  }
+  return el;
+}
+// refreshPage(): reload whatever data the current page shows
+function refreshPage() {
+  const page = window.location.pathname.split('/').pop();
+  if (page === 'dashboard.html') loadAdminDashboard();
+  else if (page === 'officer-dashboard.html') loadOfficerDashboard();
+  else if (page === 'technician-dashboard.html') loadTechDashboard();
+  else if (page === 'assign-incident.html') loadUnassignedTickets();
+  else if (page === 'resolve-incident.html') loadActiveTickets();
+  else if (page === 'escalate-incident.html') loadEscalateTickets();
+}
 
 function getToken()  { return sessionStorage.getItem('cps_token'); }
 function getUser()   { return JSON.parse(sessionStorage.getItem('cps_user') || 'null'); }
@@ -11,7 +52,14 @@ async function apiFetch(endpoint, options = {}) {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(options.headers || {}) }
   });
-  const data = await res.json();
+  let data = {};
+  try { data = await res.json(); } catch(e) { /* non-JSON response */ }
+  if (res.status === 401 && token) {
+    clearSession();
+    sessionStorage.setItem('cps_notice', 'Your session expired. Please sign in again.');
+    window.location.href = window.location.pathname.includes('/pages/') ? '../index.html' : 'index.html';
+    throw new Error('Session expired');
+  }
   if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);
   return data;
 }
@@ -63,6 +111,68 @@ function checkAccess() {
   if (page === 'assign-incident.html')      loadUnassignedTickets();
   if (page === 'resolve-incident.html')     loadActiveTickets();
   if (page === 'escalate-incident.html')    loadEscalateTickets();
+  if (page === 'log-incident.html')         loadLookups();
+  startSessionTimeout();
+  initNotifications();
+}
+
+// ── SESSION TIMEOUT: sign out after 30 minutes without activity ──
+const IDLE_LIMIT_MS = 30 * 60 * 1000;
+let idleTimer = null;
+function startSessionTimeout() {
+  const reset = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      clearSession();
+      sessionStorage.setItem('cps_notice', 'You were signed out after 30 minutes of inactivity.');
+      window.location.href = '../index.html';
+    }, IDLE_LIMIT_MS);
+  };
+  ['click','keydown','mousemove','touchstart'].forEach(ev => document.addEventListener(ev, reset, { passive: true }));
+  reset();
+}
+
+// ── IN-APP NOTIFICATIONS (bell in the navbar) ──
+async function initNotifications() {
+  const right = document.querySelector('.navbar-right');
+  if (!right || document.getElementById('notifBell')) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'notif-wrap';
+  wrap.innerHTML = `
+    <button class="notif-bell" id="notifBell" type="button" aria-label="Notifications">🔔<span class="notif-count" id="notifCount" style="display:none;">0</span></button>
+    <div class="notif-panel" id="notifPanel" style="display:none;">
+      <div class="notif-head"><strong>Notifications</strong><button type="button" class="notif-markall" id="notifMarkAll">Mark all read</button></div>
+      <ul class="notif-list" id="notifList"><li class="notif-empty">Loading...</li></ul>
+    </div>`;
+  right.insertBefore(wrap, right.firstChild);
+  document.getElementById('notifBell').addEventListener('click', e => {
+    e.stopPropagation();
+    const p = document.getElementById('notifPanel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', e => { if (!wrap.contains(e.target)) document.getElementById('notifPanel').style.display = 'none'; });
+  document.getElementById('notifMarkAll').addEventListener('click', async () => {
+    try { await apiFetch('/notifications/read-all', { method: 'PATCH' }); loadNotifications(); } catch(e) { console.error(e); }
+  });
+  loadNotifications();
+  setInterval(loadNotifications, 60000);
+}
+
+async function loadNotifications() {
+  try {
+    const d = await apiFetch('/notifications');
+    const badge = document.getElementById('notifCount');
+    const list  = document.getElementById('notifList');
+    if (badge) { badge.textContent = d.unread > 99 ? '99+' : d.unread; badge.style.display = d.unread ? 'inline-block' : 'none'; }
+    if (list) {
+      list.innerHTML = (d.notifications || []).length
+        ? d.notifications.map(n => `<li class="notif-item ${n.is_read ? '' : 'unread'}">
+            <span>${esc(n.message)}</span>
+            <small>${esc(toDate(n.created_at).toLocaleString('en-ZA'))}</small>
+          </li>`).join('')
+        : '<li class="notif-empty">No notifications yet.</li>';
+    }
+  } catch(e) { console.error('Notifications:', e); }
 }
 
 function logout() { clearSession(); window.location.href = '../index.html'; }
@@ -85,11 +195,11 @@ async function handleLogin(event) {
   }
 }
 
-function formatDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }); }
+function formatDate(d) { if (!d) return '—'; return toDate(d).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }); }
 function formatStatus(s) { const m = { open:'Open', in_progress:'In Progress', resolved:'Resolved', pending_confirmation:'Pending Confirmation', closed:'Closed', escalated:'Escalated', cancelled:'Cancelled' }; return m[s] || s; }
 function getSLAStatus(i) {
   if (i.sla_breached) return 'breached';
-  const now = new Date(), dl = new Date(i.sla_deadline);
+  const now = new Date(), dl = toDate(i.sla_deadline);
   const mins = (dl - now) / 60000;
   const lims = { critical:120, high:240, medium:480, low:1440 };
   const pct  = ((lims[i.priority] - mins) / lims[i.priority]) * 100;
@@ -97,6 +207,9 @@ function getSLAStatus(i) {
 }
 
 window.onload = function() {
+  const notice = sessionStorage.getItem('cps_notice');
+  const loginErr = document.getElementById('errorMessage');
+  if (notice && loginErr && document.getElementById('loginForm')) { loginErr.textContent = notice; sessionStorage.removeItem('cps_notice'); }
   const df = document.getElementById('incidentDate');
   const tf = document.getElementById('incidentTime');
   if (df && tf) { const now = new Date(); df.value = now.toISOString().split('T')[0]; tf.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`; }
@@ -117,14 +230,13 @@ async function loadAdminDashboard() {
 
 async function loadOfficerDashboard() {
   try {
-    const r = await apiFetch('/dashboard/recent?limit=10');
-    const inc = r.incidents || [];
+    const [s, r] = await Promise.all([apiFetch('/dashboard/summary'), apiFetch('/dashboard/recent?limit=10')]);
     const nums = document.querySelectorAll('.stat-number');
-    if (nums[0]) nums[0].textContent = inc.length;
-    if (nums[1]) nums[1].textContent = inc.filter(i=>i.status==='open').length;
-    if (nums[2]) nums[2].textContent = inc.filter(i=>i.status==='in_progress').length;
-    if (nums[3]) nums[3].textContent = inc.filter(i=>['resolved','closed'].includes(i.status)).length;
-    renderTable(inc, 'officer');
+    if (nums[0]) nums[0].textContent = s.summary.total;
+    if (nums[1]) nums[1].textContent = s.summary.open;
+    if (nums[2]) nums[2].textContent = s.summary.inProgress;
+    if (nums[3]) nums[3].textContent = s.summary.resolved + s.summary.closed;
+    renderTable(r.incidents || [], 'officer');
   } catch(e) { console.error('Officer dashboard:', e); }
 }
 
@@ -164,32 +276,31 @@ function renderTable(incidents, role) {
     const st   = formatStatus(i.status);
     const stCl = i.status.replace('_','');
     const pri  = i.priority.charAt(0).toUpperCase()+i.priority.slice(1);
-    const esc  = i.description.replace(/'/g,"\\'");
 
     let action = `<a href="track-incident.html?ticket=${i.ticket_number}" class="btn-assign">View</a>`;
 if (i.status === 'open' && role==='admin') {
-  action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
+  action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
 } else if (i.status === 'open' && role==='officer') {
-  action = `<button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Assign</button>`;
-} else if (i.status === 'in_progress' && role==='technician') {
-  action = `<button class="btn-assign" onclick="openResolveModal('${i.ticket_number}','${esc}','${i.priority}','${asgn}')">Resolve</button>`;
-} else if (i.status === 'pending_confirmation' && role==='officer') {
+  action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
+} else if (['in_progress','escalated'].includes(i.status) && role==='technician') {
+  action = `<button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)})">Resolve</button>`;
+} else if (i.status === 'pending_confirmation' && role==='officer' && i.logged_by === (getUser()||{}).userId) {
   action = `
     <div style="display:flex;gap:6px;">
-      <button class="btn-assign" style="background:#16a34a;color:white;border-color:#16a34a;" onclick="openConfirmModal('${i.ticket_number}','${esc}')">✅ Confirm</button>
-      <button class="btn-assign" style="background:#dc2626;color:white;border-color:#dc2626;" onclick="openRejectModal('${i.ticket_number}','${esc}')">🔄 Reject</button>
+      <button class="btn-assign" style="background:#16a34a;color:white;border-color:#16a34a;" onclick="openConfirmModal(${q(i.ticket_number)},${q(i.description)})">✅ Confirm</button>
+      <button class="btn-assign" style="background:#dc2626;color:white;border-color:#dc2626;" onclick="openRejectModal(${q(i.ticket_number)},${q(i.description)})">🔄 Reject</button>
     </div>`;
 } else if (i.status === 'escalated' && role==='admin') {
-  action = `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal('${i.ticket_number}','${esc}','${i.priority}')">Re-assign</button>`;
+  action = `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Re-assign</button>`;
 }
 
     return `<tr>
-      <td>${i.ticket_number}</td>
-      <td>${i.description.substring(0,40)}${i.description.length>40?'...':''}</td>
-      <td>${loc}</td>
+      <td>${esc(i.ticket_number)}</td>
+      <td>${esc(i.description.substring(0,40))}${i.description.length>40?'...':''}</td>
+      <td>${esc(loc)}</td>
       <td><span class="badge ${i.priority}">${pri}</span></td>
       <td><span class="badge ${stCl}">${st}</span></td>
-      <td>${asgn}</td>
+      <td>${esc(asgn)}</td>
       <td>${date}</td>
       <td>${action}</td>
     </tr>`;
@@ -197,6 +308,23 @@ if (i.status === 'open' && role==='admin') {
 }
 
 // ── UC1 LOG INCIDENT ──
+// Categories/locations come from the database so the form sends real numeric IDs
+async function loadLookups() {
+  try {
+    const [c, l] = await Promise.all([apiFetch('/users/categories'), apiFetch('/users/locations')]);
+    const cat = document.getElementById('category');
+    const loc = document.getElementById('location');
+    if (cat) cat.innerHTML = '<option value="" disabled selected>Select category</option>' +
+      (c.categories||[]).map(x => `<option value="${esc(x.category_id)}">${esc(x.category_name)}</option>`).join('');
+    if (loc) loc.innerHTML = '<option value="" disabled selected>Select location</option>' +
+      (l.locations||[]).map(x => `<option value="${esc(x.location_id)}">${esc(x.location_name)}</option>`).join('');
+  } catch(e) {
+    console.error('Lookups:', e);
+    const err = document.getElementById('errorMessage');
+    if (err) err.textContent = 'Could not load categories/locations. Please refresh the page.';
+  }
+}
+
 async function handleLogIncident(event) {
   event.preventDefault();
   const callerName    = document.getElementById('callerName')?.value.trim();
@@ -207,7 +335,7 @@ async function handleLogIncident(event) {
   const description   = document.getElementById('description')?.value.trim();
   const notes         = document.getElementById('notes')?.value.trim();
   const errEl         = document.getElementById('errorMessage');
-  const successEl     = document.getElementById('successMessage');
+  const successEl     = getSuccessEl();
   const btn           = event.target.querySelector('button[type="submit"]');
   errEl.textContent = ''; successEl.style.display = 'none';
   if (!callerName||!callerContact||!categoryId||!locationId||!priority||!description) { errEl.textContent='Please complete all required fields.'; return; }
@@ -228,7 +356,7 @@ async function handleLogIncident(event) {
 function resetForm() {
   document.getElementById('incidentForm')?.reset();
   const e=document.getElementById('errorMessage'); if(e) e.textContent='';
-  const s=document.getElementById('successMessage'); if(s) s.style.display='none';
+  const s=getSuccessEl(); if(s) s.style.display='none';
   window.onload();
 }
 
@@ -241,13 +369,13 @@ async function loadUnassignedTickets() {
     const tbody = document.querySelector('.tickets-table tbody'); if(!tbody) return;
     if (!inc.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No unassigned tickets.</td></tr>'; return; }
     tbody.innerHTML = inc.map(i=>`<tr>
-      <td>${i.ticket_number}</td>
-      <td>${i.description.substring(0,45)}${i.description.length>45?'...':''}</td>
-      <td>${i.locations?.location_name||'—'}</td>
-      <td>${i.categories?.category_name||'—'}</td>
+      <td>${esc(i.ticket_number)}</td>
+      <td>${esc(i.description.substring(0,45))}${i.description.length>45?'...':''}</td>
+      <td>${esc(i.locations?.location_name||'—')}</td>
+      <td>${esc(i.categories?.category_name||'—')}</td>
       <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
       <td>${formatDate(i.date_logged)}</td>
-      <td><button class="btn-assign" onclick="openAssignModal('${i.ticket_number}','${i.description.replace(/'/g,"\\'")}','${i.priority}')">Assign</button></td>
+      <td><button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button></td>
     </tr>`).join('');
     await loadTechDropdown();
   } catch(e) { console.error('Unassigned tickets:', e); }
@@ -258,7 +386,7 @@ async function loadTechDropdown() {
     const data = await apiFetch('/users/technicians');
     const sel  = document.getElementById('assignTo'); if(!sel||!data.technicians) return;
     sel.innerHTML = '<option value="" disabled selected>Select officer / technician</option>';
-    data.technicians.forEach(t => { sel.innerHTML+=`<option value="${t.user_id}">${t.full_name} (${t.activeTickets} active)</option>`; });
+    data.technicians.forEach(t => { sel.insertAdjacentHTML('beforeend',`<option value="${esc(t.user_id)}">${esc(t.full_name)} (${esc(t.activeTickets)} active)</option>`); });
   } catch(e) { console.error('Tech dropdown:', e); }
 }
 
@@ -325,7 +453,7 @@ async function handleAssignIncident(event) {
   const priority=document.getElementById('updatePriority')?.value;
   const notes=document.getElementById('assignmentNotes')?.value.trim();
   const errEl=document.getElementById('assignErrorMessage');
-  const successEl=document.getElementById('successMessage');
+  const successEl=getSuccessEl();
   const btn=event.target.querySelector('button[type="submit"]');
   errEl.textContent='';
   if (!assignTo) { errEl.textContent='Please select an officer.'; return; }
@@ -334,7 +462,7 @@ async function handleAssignIncident(event) {
     const data=await apiFetch(`/incidents/${currentTicket}/assign`, { method:'PATCH', body:JSON.stringify({ assignTo, priority, assignmentNotes:notes }) });
     closeAssignModal();
     successEl.textContent=data.message; successEl.style.display='block';
-    setTimeout(()=>{ successEl.style.display='none'; loadUnassignedTickets(); }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
   } catch(err) { errEl.textContent=err.message||'Failed to assign ticket.'; }
   finally { btn.textContent='Confirm Assignment'; btn.disabled=false; }
 }
@@ -348,14 +476,14 @@ async function loadActiveTickets() {
     const tbody=document.querySelector('.tickets-table tbody'); if(!tbody) return;
     if (!inc.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">No active tickets.</td></tr>'; return; }
     tbody.innerHTML=inc.map(i=>`<tr>
-      <td>${i.ticket_number}</td>
-      <td>${i.description.substring(0,40)}${i.description.length>40?'...':''}</td>
-      <td>${i.locations?.location_name||'—'}</td>
+      <td>${esc(i.ticket_number)}</td>
+      <td>${esc(i.description.substring(0,40))}${i.description.length>40?'...':''}</td>
+      <td>${esc(i.locations?.location_name||'—')}</td>
       <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
-      <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+      <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
       <td>${formatDate(i.date_logged)}</td>
       <td><span class="badge inprogress">In Progress</span></td>
-      <td><button class="btn-assign" onclick="openResolveModal('${i.ticket_number}','${i.description.replace(/'/g,"\\'")}','${i.priority}','${i.assigned_user?.full_name||'Unassigned'}')">Resolve</button></td>
+      <td><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')})">Resolve</button></td>
     </tr>`).join('');
   } catch(e) { console.error('Active tickets:', e); }
 }
@@ -408,7 +536,6 @@ function openResolveModal(tn, desc, pri, asgn) {
             <label for="resolveStatus">Resolution Status</label>
             <select id="resolveStatus">
               <option value="resolved">Resolved</option>
-              <option value="escalated">Escalated</option>
             </select>
           </div>
           <p id="resolveErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
@@ -435,20 +562,19 @@ async function handleResolveIncident(event) {
   const notes=document.getElementById('resolutionNotes').value.trim();
   const time=document.getElementById('timeSpent').value;
   const intNote=document.getElementById('internalNotes')?.value.trim();
-  const status=document.getElementById('resolveStatus')?.value||'resolved';
   const errEl=document.getElementById('resolveErrorMessage');
-  const successEl=document.getElementById('successMessage');
+  const successEl=getSuccessEl();
   const btn=event.target.querySelector('button[type="submit"]');
   errEl.textContent='';
   if (!notes||notes.length<20) { errEl.textContent='Resolution notes must be at least 20 characters.'; return; }
   if (!time) { errEl.textContent='Please select time spent.'; return; }
   btn.textContent='Submitting...'; btn.disabled=true;
   try {
-    const data=await apiFetch(`/incidents/${currentResolveTicket}/resolve`, { method:'PATCH', body:JSON.stringify({ resolutionNotes:notes, internalNotes:intNote, timeSpent:time, resolutionStatus:status }) });
+    const data=await apiFetch(`/incidents/${currentResolveTicket}/resolve`, { method:'PATCH', body:JSON.stringify({ resolutionNotes:notes, internalNotes:intNote, timeSpent:time }) });
     closeResolveModal();
     successEl.textContent=`Ticket ${currentResolveTicket} resolved successfully! Awaiting confirmation.`;
     successEl.style.display='block';
-    setTimeout(()=>{ successEl.style.display='none'; loadActiveTickets(); }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
   } catch(err) { errEl.textContent=err.message||'Failed to resolve ticket.'; }
   finally { btn.textContent='Submit Resolution'; btn.disabled=false; }
 }
@@ -470,8 +596,8 @@ function openConfirmModal(tn, desc) {
         <button class="modal-close" onclick="document.getElementById('confirmModal').close()">✕</button>
       </header>
       <section class="modal-ticket-info">
-        <p><strong>Ticket:</strong> ${tn}</p>
-        <p><strong>Description:</strong> ${desc}</p>
+        <p><strong>Ticket:</strong> ${esc(tn)}</p>
+        <p><strong>Description:</strong> ${esc(desc)}</p>
       </section>
       <div style="padding:16px 0;">
         <p style="font-size:13.5px;color:#333;margin-bottom:16px;">Are you satisfied with the resolution? Confirming will permanently close this ticket.</p>
@@ -516,8 +642,8 @@ function openRejectModal(tn, desc) {
         <button class="modal-close" onclick="document.getElementById('rejectModal').close()">✕</button>
       </header>
       <section class="modal-ticket-info">
-        <p><strong>Ticket:</strong> ${tn}</p>
-        <p><strong>Description:</strong> ${desc}</p>
+        <p><strong>Ticket:</strong> ${esc(tn)}</p>
+        <p><strong>Description:</strong> ${esc(desc)}</p>
       </section>
       <div style="padding:16px 0;">
         <p style="font-size:13.5px;color:#333;margin-bottom:16px;">The ticket will be reopened and the technician notified with your reason.</p>
@@ -559,14 +685,12 @@ async function submitReject() {
     });
 
     document.getElementById('rejectModal').close();
-    const successEl = document.getElementById('successMessage');
+    const successEl = getSuccessEl();
     if (successEl) {
-      successEl.textContent = `🔄 Ticket ${currentConfirmTicket} rejected and reopened. Technician has been notified.`;
+      successEl.textContent = `🔄 Ticket ${currentConfirmTicket} rejected and reopened. The ticket is back in the open queue.`;
       successEl.style.display = 'block';
-      setTimeout(() => {
-        successEl.style.display = 'none';
-        loadOfficerDashboard();
-      }, 4000);
+      refreshPage();
+      setTimeout(() => { successEl.style.display = 'none'; }, 4000);
     }
   } catch(err) {
     errEl.textContent = err.message || 'Failed to reject. Please try again.';
@@ -599,14 +723,12 @@ async function submitConfirm(action) {
     });
 
     document.getElementById('confirmModal').close();
-    const successEl = document.getElementById('successMessage');
+    const successEl = getSuccessEl();
     if (successEl) {
       successEl.textContent = `✅ Ticket ${currentConfirmTicket} confirmed and closed successfully!`;
       successEl.style.display = 'block';
-      setTimeout(() => {
-        successEl.style.display = 'none';
-        loadOfficerDashboard();
-      }, 4000);
+      refreshPage();
+      setTimeout(() => { successEl.style.display = 'none'; }, 4000);
     }
   } catch(err) {
     errEl.textContent = err.message || 'Failed to confirm. Please try again.';
@@ -638,16 +760,16 @@ if (banner && bannerText) {
     tbody.innerHTML=inc.map(i=>{
       const sla=getSLAStatus(i);
       const slaL=sla==='breached'?'SLA Breached':sla==='approaching'?'Approaching':'Within SLA';
-      const hrs=Math.round(((new Date()-new Date(i.date_logged))/3600000)*10)/10;
+      const hrs=Math.round(((new Date()-toDate(i.date_logged))/3600000)*10)/10;
       return `<tr>
-        <td>${i.ticket_number}</td>
-        <td>${i.description.substring(0,35)}${i.description.length>35?'...':''}</td>
-        <td>${i.locations?.location_name||'—'}</td>
+        <td>${esc(i.ticket_number)}</td>
+        <td>${esc(i.description.substring(0,35))}${i.description.length>35?'...':''}</td>
+        <td>${esc(i.locations?.location_name||'—')}</td>
         <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
         <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
         <td>${hrs}h</td>
         <td><span class="sla-badge ${sla}">${slaL}</span></td>
-        <td><button class="btn-assign" onclick="openEscalateModal('${i.ticket_number}','${i.description.replace(/'/g,"\\'")}','${i.priority}','${sla}')">Escalate</button></td>
+        <td><button class="btn-assign" onclick="openEscalateModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(sla)})">Escalate</button></td>
       </tr>`;
     }).join('');
   } catch(e) { console.error('Escalate tickets:', e); }
@@ -673,7 +795,7 @@ async function handleEscalateIncident(event) {
   const notes=document.getElementById('escalationNotes').value.trim();
   const priUpd=document.getElementById('escalatePriorityUpdate')?.value;
   const errEl=document.getElementById('escalateErrorMessage');
-  const successEl=document.getElementById('successMessage');
+  const successEl=getSuccessEl();
   const btn=event.target.querySelector('button[type="submit"]');
   errEl.textContent='';
   if (!reason) { errEl.textContent='Please select an escalation reason.'; return; }
@@ -685,7 +807,7 @@ async function handleEscalateIncident(event) {
     closeEscalateModal();
     successEl.textContent=`Ticket ${currentEscalateTicket} escalated successfully!`;
     successEl.style.display='block';
-    setTimeout(()=>{ successEl.style.display='none'; loadEscalateTickets(); }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
   } catch(err) { errEl.textContent=err.message||'Failed to escalate ticket.'; }
   finally { btn.textContent='🚨 Confirm Escalation'; btn.disabled=false; }
 }
@@ -714,9 +836,9 @@ async function handleSearch(event) {
         <li class="audit-item">
           <span class="audit-dot open"></span>
           <section class="audit-content">
-            <strong>${a.action_description}</strong>
-            <p>By ${a.performer?.full_name||'System'}</p>
-            <span class="audit-time">${new Date(a.action_time).toLocaleString('en-ZA')}</span>
+            <strong>${esc(a.action_description)}</strong>
+            <p>By ${esc(a.performer?.full_name||'System')}</p>
+            <span class="audit-time">${toDate(a.action_time).toLocaleString('en-ZA')}</span>
           </section>
         </li>`).join('');
     } else if (auditList) { auditList.innerHTML='<li style="color:#999;padding:12px 0;">No audit trail entries yet.</li>'; }

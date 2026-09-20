@@ -198,8 +198,8 @@
       return allIncidents.filter(i => {
         if (priority !== 'all' && i.priority !== priority) return false;
         if (status !== 'all' && i.status !== status) return false;
-        if (dateFrom && new Date(i.date_logged) < new Date(dateFrom)) return false;
-        if (dateTo && new Date(i.date_logged) > new Date(dateTo+'T23:59:59')) return false;
+        if (dateFrom && toDate(i.date_logged) < new Date(dateFrom)) return false;
+        if (dateTo && toDate(i.date_logged) > new Date(dateTo+'T23:59:59')) return false;
         return true;
       });
     }
@@ -219,12 +219,12 @@
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Date Logged</th><th>Date Resolved</th><th>Time Taken</th><th>SLA</th></tr></thead>
             <tbody>${resolved.length ? resolved.map(i => {
-              const hrs = i.date_resolved ? Math.round(((new Date(i.date_resolved)-new Date(i.date_logged))/3600000)*10)/10 : '—';
+              const hrs = i.date_resolved ? Math.round(((toDate(i.date_resolved)-toDate(i.date_logged))/3600000)*10)/10 : '—';
               return `<tr>
-                <td>${i.ticket_number}</td>
+                <td>${esc(i.ticket_number)}</td>
                 <td><span class="badge ${i.priority}">${i.priority}</span></td>
                 <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
-                <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+                <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
                 <td>${formatDate(i.date_logged)}</td>
                 <td>${formatDate(i.date_resolved)}</td>
                 <td>${hrs}h</td>
@@ -241,10 +241,10 @@
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Location</th><th>Priority</th><th>Status</th><th>Date</th></tr></thead>
             <tbody>${inc.length ? inc.map(i=>`<tr>
-              <td>${i.ticket_number}</td>
-              <td>${i.description.substring(0,40)}...</td>
-              <td>${i.categories?.category_name||'—'}</td>
-              <td>${i.locations?.location_name||'—'}</td>
+              <td>${esc(i.ticket_number)}</td>
+              <td>${esc(i.description.substring(0,40))}...</td>
+              <td>${esc(i.categories?.category_name||'—')}</td>
+              <td>${esc(i.locations?.location_name||'—')}</td>
               <td><span class="badge ${i.priority}">${i.priority}</span></td>
               <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
               <td>${formatDate(i.date_logged)}</td>
@@ -257,12 +257,12 @@
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Priority</th><th>Status</th><th>Location</th><th>Assigned To</th><th>Date</th></tr></thead>
             <tbody>${inc.length ? inc.sort((a,b)=>['critical','high','medium','low'].indexOf(a.priority)-['critical','high','medium','low'].indexOf(b.priority)).map(i=>`<tr>
-              <td>${i.ticket_number}</td>
-              <td>${i.description.substring(0,40)}...</td>
+              <td>${esc(i.ticket_number)}</td>
+              <td>${esc(i.description.substring(0,40))}...</td>
               <td><span class="badge ${i.priority}">${i.priority}</span></td>
               <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
-              <td>${i.locations?.location_name||'—'}</td>
-              <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+              <td>${esc(i.locations?.location_name||'—')}</td>
+              <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
               <td>${formatDate(i.date_logged)}</td>
             </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'}</tbody>
           </table>`;
@@ -273,12 +273,12 @@
           <table class="tickets-table">
             <thead><tr><th>Ticket No.</th><th>Description</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Date Logged</th><th>Date Closed</th></tr></thead>
             <tbody>${inc.length ? inc.map(i=>`<tr>
-              <td>${i.ticket_number}</td>
-              <td>${i.description.substring(0,35)}...</td>
-              <td>${i.categories?.category_name||'—'}</td>
+              <td>${esc(i.ticket_number)}</td>
+              <td>${esc(i.description.substring(0,35))}...</td>
+              <td>${esc(i.categories?.category_name||'—')}</td>
               <td><span class="badge ${i.priority}">${i.priority}</span></td>
               <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
-              <td>${i.assigned_user?.full_name||'Unassigned'}</td>
+              <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
               <td>${formatDate(i.date_logged)}</td>
               <td>${formatDate(i.date_closed)}</td>
             </tr>`).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'}</tbody>
@@ -290,7 +290,7 @@
           <table class="tickets-table">
             <thead><tr><th>Technician</th><th>Assigned</th><th>Resolved</th><th>Avg Resolution Time</th><th>SLA Compliance</th><th>Avg Rating</th><th>Status</th></tr></thead>
             <tbody>${allPerformance.length ? allPerformance.map(t=>`<tr>
-              <td><strong>${t.fullName}</strong></td>
+              <td><strong>${esc(t.fullName)}</strong></td>
               <td>${t.totalAssigned}</td>
               <td>${t.totalResolved}</td>
               <td>${t.avgResolutionHrs?t.avgResolutionHrs+'h':'—'}</td>
@@ -311,7 +311,7 @@
       const headers = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Resolved'];
       const rows = inc.map(i => [
         i.ticket_number,
-        `"${i.description.replace(/"/g,'""')}"`,
+        `"${String(i.description).replace(/^[=+\-@]/,"'$&").replace(/"/g,'""')}"`,
         i.categories?.category_name||'',
         i.locations?.location_name||'',
         i.priority,

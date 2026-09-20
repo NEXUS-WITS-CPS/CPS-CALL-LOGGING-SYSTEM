@@ -4,6 +4,7 @@
 const express  = require('express');
 const supabase = require('../supabaseClient');
 const { authMiddleware } = require('../middleware/auth');
+const { runSlaCheck } = require('../lib/sla');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -11,6 +12,7 @@ router.use(authMiddleware);
 // GET /api/dashboard/summary — KPI stats for dashboard
 router.get('/summary', async (req, res) => {
   try {
+    await runSlaCheck();   // escalate overdue tickets first so the numbers are current
     let query = supabase.from('incidents').select('status, priority, sla_breached, date_logged, date_resolved');
 
     // Role-based filtering
@@ -98,12 +100,13 @@ router.get('/summary', async (req, res) => {
 // GET /api/dashboard/recent — recent tickets for table
 router.get('/recent', async (req, res) => {
   try {
+    await runSlaCheck();
     const limit = parseInt(req.query.limit) || 10;
 
     let query = supabase
       .from('incidents')
       .select(`
-        incident_id, ticket_number, priority, status,
+        incident_id, ticket_number, priority, status, logged_by, assigned_to,
         description, caller_name, date_logged, sla_deadline, sla_breached,
         categories(category_name),
         locations(location_name),

@@ -30,28 +30,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    // For demo accounts use simple password check
-    // In production all passwords are bcrypt hashed
-    const demoPasswords = {
-      'admin@wits.ac.za':    'admin123',
-      'officer@wits.ac.za':  'officer123',
-      'tech@wits.ac.za':     'tech123',
-      '2725508@wits.ac.za': 'Panashe',
-'2809151@wits.ac.za': 'Ashley',
-'2700513@wits.ac.za': 'Vuyo',
-'2836373@wits.ac.za': 'Blessing',
-'1895234@wits.ac.za': 'Melissa',
-'2749154@wits.ac.za': 'Rudzani',
-      
-    };
-
-    let passwordValid = false;
-
-    if (demoPasswords[email.toLowerCase()]) {
-      passwordValid = password === demoPasswords[email.toLowerCase()];
-    } else {
-      passwordValid = await bcrypt.compare(password, user.password_hash);
-    }
+    // All accounts (including demo accounts) are verified against their bcrypt hash
+    const passwordValid = await bcrypt.compare(password, user.password_hash || '');
 
     if (!passwordValid) {
       return res.status(401).json({ error: 'Invalid email or password.' });

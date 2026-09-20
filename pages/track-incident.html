@@ -139,13 +139,13 @@
 
         tbody.innerHTML = incidents.map(i => `
           <tr>
-            <td>${i.ticket_number}</td>
-            <td>${i.description.substring(0,45)}${i.description.length>45?'...':''}</td>
-            <td>${i.categories?.category_name||'—'}</td>
+            <td>${esc(i.ticket_number)}</td>
+            <td>${esc(i.description.substring(0,45))}${i.description.length>45?'...':''}</td>
+            <td>${esc(i.categories?.category_name||'—')}</td>
             <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
             <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
             <td>${formatDate(i.date_logged)}</td>
-            <td><button class="btn-assign" onclick="searchTicket('${i.ticket_number}')">View</button></td>
+            <td><button class="btn-assign" onclick="searchTicket(${q(i.ticket_number)})">View</button></td>
           </tr>`).join('');
       } catch(e) {
         document.getElementById('trackTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Failed to load tickets.</td></tr>';
@@ -181,9 +181,9 @@
             <li class="audit-item">
               <span class="audit-dot open"></span>
               <section class="audit-content">
-                <strong>${a.action_description}</strong>
-                <p>By ${a.performer?.full_name||'System'}</p>
-                <span class="audit-time">${new Date(a.action_time).toLocaleString('en-ZA')}</span>
+                <strong>${esc(a.action_description)}</strong>
+                <p>By ${esc(a.performer?.full_name||'System')}</p>
+                <span class="audit-time">${toDate(a.action_time).toLocaleString('en-ZA')}</span>
               </section>
             </li>`).join('');
         } else {

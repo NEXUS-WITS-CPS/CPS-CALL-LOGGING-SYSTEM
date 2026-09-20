@@ -4,7 +4,8 @@
   "description": "Wits CPS Call Logging System API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/workflow.test.js"
   },
   "engines": {
     "node": "22.x"
