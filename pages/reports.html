@@ -173,7 +173,7 @@
         document.getElementById('criticalCount').textContent     = allIncidents.filter(i=>i.priority==='critical').length;
         document.getElementById('escalatedCount').textContent    = s.escalated || '0';
         document.getElementById('resolvedCount').textContent     = (s.resolved||0) + (s.closed||0);
-        document.getElementById('outstandingCount').textContent  = (s.open||0) + (s.inProgress||0);
+        document.getElementById('outstandingCount').textContent  = (s.open||0) + (s.inProgress||0) + (s.escalated||0);
 
         if (allPerformance.length > 0) {
           const top = allPerformance.sort((a,b) => b.totalResolved - a.totalResolved)[0];

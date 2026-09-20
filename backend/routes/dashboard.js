@@ -42,9 +42,12 @@ router.get('/summary', async (req, res) => {
       : 0;
 
     // SLA compliance %
-    const resolvedTotal = incidents.filter(i => ['resolved','pending_confirmation','closed'].includes(i.status)).length;
+    // Same definition as the technician report: of the tickets that have been resolved
+    // (resolved / awaiting confirmation / closed), the % that never breached their SLA.
+    const resolvedList  = incidents.filter(i => ['resolved','pending_confirmation','closed'].includes(i.status));
+    const resolvedTotal = resolvedList.length;
     const slaCompliance = resolvedTotal > 0
-      ? Math.round(((resolvedTotal - slaBreached) / resolvedTotal) * 100)
+      ? Math.round((resolvedList.filter(i => !i.sla_breached).length / resolvedTotal) * 100)
       : 100;
 
     // SLA alerts — breached or approaching
