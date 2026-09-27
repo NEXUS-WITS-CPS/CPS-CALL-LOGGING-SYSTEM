@@ -169,6 +169,7 @@ body {
   background-color: #003B5C;
   padding: 12px 24px;
   display: flex;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
   position: fixed;
@@ -177,30 +178,44 @@ body {
   right: 0;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  /* Fixed height matters: .page-layout/.sidebar/.sidebar-backdrop all
+     assume a 64px navbar and position themselves below it — if the
+     title wraps to a second line on a narrow screen the navbar grows
+     taller than that and starts covering the page content. The
+     nowrap + ellipsis below keep it locked to one line at any width. */
+  height: 64px;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0; /* required for text-overflow:ellipsis to work inside a flex item */
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .nav-logo {
   width: 40px;
   height: 40px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .nav-title {
   color: #ffffff;
   font-size: 16px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navbar-right {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
 }
 
 .nav-user {
@@ -357,6 +372,11 @@ body {
   border-radius: 10px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  /* Lets the table scroll horizontally inside its own card on a narrow
+     screen instead of squeezing columns unreadably or breaking the
+     page layout — harmless at desktop widths, where it never triggers. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-header {
@@ -374,6 +394,7 @@ body {
 
 .tickets-table {
   width: 100%;
+  min-width: 640px; /* keeps columns readable — .table-section scrolls instead of crushing them */
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -1169,3 +1190,140 @@ body {
   display: none;
 }
 .cold-start-banner.visible { display: block; }
+
+/* =====================================================
+   RESPONSIVE LAYOUT
+   The sidebar/main-content shell and several grids below were fixed-
+   width, desktop-only layouts with no breakpoints. This section makes
+   the whole app usable from phone width up to large/TV displays,
+   without changing any page's HTML structure — .nav-hamburger and
+   .sidebar-backdrop are injected by main.js (checkAccess()).
+
+   Breakpoints:
+     <=1024px — sidebar becomes an off-canvas drawer, opened by the
+                hamburger button, instead of a fixed 220px column
+     <=768px  — navbar/cards tighten up; ticket detail header stacks
+     <=640px  — remaining multi-column grids and form rows drop to a
+                single column for phone widths
+     >=1600px — content gets a max-width so it doesn't stretch edge to
+                edge on very large monitors / TVs
+===================================================== */
+
+/* ---- Hamburger toggle button (hidden until <=1024px) ---- */
+.nav-hamburger {
+  display: none;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+  margin-right: 4px;
+  border-radius: 4px;
+}
+.nav-hamburger:hover { background: rgba(255,255,255,0.12); }
+
+/* ---- Backdrop behind the open sidebar drawer on mobile/tablet ---- */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 150;
+}
+.sidebar-backdrop.open { display: block; }
+
+@media (max-width: 1024px) {
+  .nav-hamburger { display: inline-block; }
+
+  /* Off-canvas drawer instead of a permanent 220px column */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 200;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  .main-content {
+    margin-left: 0;
+    padding: 24px;
+  }
+
+  .stats-grid,
+  .reports-grid,
+  .ticket-info-grid,
+  .report-modal-stats,
+  .filter-card .form-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .search-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar { padding: 10px 14px; }
+  .nav-title { font-size: 14px; }
+  .nav-user { display: none; } /* saves space; the sidebar/page already identify the account */
+
+  .page-header h1 { font-size: 21px; }
+
+  .main-content { padding: 18px; }
+
+  .search-card,
+  .filter-card,
+  .ticket-detail-card,
+  .table-section,
+  .login-card {
+    padding: 18px;
+  }
+
+  .ticket-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .ticket-detail-header .ticket-detail-date { order: 2; }
+  #cancelTicketBtn { margin-left: 0 !important; }
+
+  .modal-content { padding: 20px; }
+
+  .notif-panel { width: min(340px, calc(100vw - 32px)); right: -8px; }
+}
+
+@media (max-width: 640px) {
+  .main-content { padding: 14px; }
+
+  .stats-grid,
+  .reports-grid,
+  .ticket-info-grid,
+  .report-modal-stats,
+  .form-row,
+  .filter-card .form-row {
+    grid-template-columns: 1fr;
+  }
+  .form-group.full-width { grid-column: auto; }
+
+  .form-actions { flex-direction: column-reverse; }
+  .form-actions button { width: 100%; }
+
+  .export-buttons { flex-direction: column; }
+  .btn-export { width: 100%; }
+
+  .login-container { padding: 14px; }
+  .login-card { padding: 24px 18px; }
+
+  .search-btn-group .btn-primary { width: 100%; }
+}
+
+/* ---- Large monitors / TVs: cap the reading width instead of
+   stretching cards and tables edge to edge ---- */
+@media (min-width: 1600px) {
+  .main-content { max-width: 1500px; }
+}

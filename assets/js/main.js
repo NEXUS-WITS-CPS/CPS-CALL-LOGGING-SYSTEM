@@ -150,6 +150,43 @@ function checkAccess() {
   if (page === 'log-incident.html')         loadLookups();
   startSessionTimeout();
   initNotifications();
+  initMobileNav();
+}
+
+// ── MOBILE/TABLET NAV: hamburger toggle for the off-canvas sidebar ──
+// The sidebar was a fixed 220px column with no small-screen behavior at
+// all; below 1024px (see style.css) it becomes a drawer, opened by a
+// hamburger button injected here into the navbar, same pattern as
+// initNotifications() injecting the bell.
+function initMobileNav() {
+  const navLeft = document.querySelector('.navbar-left');
+  const sidebar = document.querySelector('.sidebar');
+  if (!navLeft || !sidebar || document.querySelector('.nav-hamburger')) return;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'nav-hamburger';
+  btn.setAttribute('aria-label', 'Toggle navigation menu');
+  btn.textContent = '☰';
+  navLeft.insertBefore(btn, navLeft.firstChild);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sidebar-backdrop';
+  document.body.appendChild(backdrop);
+
+  function openNav()  { sidebar.classList.add('open');  backdrop.classList.add('open');  btn.textContent = '✕'; }
+  function closeNav()  { sidebar.classList.remove('open'); backdrop.classList.remove('open'); btn.textContent = '☰'; }
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    sidebar.classList.contains('open') ? closeNav() : openNav();
+  });
+  backdrop.addEventListener('click', closeNav);
+  // Tapping a sidebar link should close the drawer, not leave it open
+  // behind the next page (the next page's checkAccess() rebuilds it closed anyway).
+  sidebar.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
+  // Resizing up to desktop width shouldn't leave the drawer state stuck open.
+  window.addEventListener('resize', () => { if (window.innerWidth > 1024) closeNav(); });
 }
 
 // ── SESSION TIMEOUT: sign out after 30 minutes without activity ──
