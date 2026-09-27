@@ -49,6 +49,9 @@ async function call(method, path, token, body) {
   }
   if (!T.officer || !T.admin || !T.tech) { console.log('Cannot continue without all three logins.'); process.exit(1); }
 
+  const me = await call('GET', '/auth/me', T.officer);
+  check('REQ-M1', 'Requirements', '/auth/me returns the signed-in officer', me.s === 200 && me.j.user?.role === 'officer', me.s);
+
   // ---- Role-based access
   const techLog = await call('POST', '/incidents', T.tech, {});
   check('SEC-06', 'Security', 'Technician cannot log an incident (403)', techLog.s === 403, techLog.s);
@@ -112,6 +115,8 @@ async function call(method, path, token, body) {
   check('UC5-01', 'Scenario', 'UC5 Technician resolves -> pending_confirmation', res.s === 200, res.s + ' ' + JSON.stringify(res.j));
   const res2 = await call('PATCH', `/incidents/${tn}/resolve`, T.tech, { resolutionNotes: 'TEST resolved twice, should be refused.', timeSpent: 30 });
   check('UC5-02', 'Scenario', 'Resolving twice refused (409)', res2.s === 409, res2.s);
+  const pending = await call('GET', '/incidents/status/pending-confirmation', T.officer);
+  check('UC2-04', 'Scenario', 'Pending-confirmation list includes the resolved ticket', pending.s === 200 && (pending.j.incidents || []).some(i => i.ticket_number === tn), pending.s);
 
   // ---- UC3 Confirm / reject
   const noReason = await call('PATCH', `/incidents/${tn}/confirm`, T.officer, { action: 'reject' });
@@ -168,6 +173,14 @@ async function call(method, path, token, body) {
   }
   const rt = await call('GET', '/reports/technician-performance', T.tech);
   check('SEC-11', 'Security', 'Technician access to reports is controlled', [200, 403].includes(rt.s), rt.s);
+  const drill = await call('GET', `/reports/technician-performance/${T.techId}`, T.admin);
+  check('RPT-07', 'Report', 'Technician performance drill-down loads', drill.s === 200, drill.s);
+  const recent = await call('GET', '/dashboard/recent', T.tech);
+  check('RPT-08', 'Report', 'Dashboard recent tickets only include the technician\'s own', recent.s === 200 && (recent.j.incidents || []).every(i => i.assigned_to === T.techId), recent.s);
+
+  // Note: POST /auth/register and PATCH /users/:id/deactivate create permanent
+  // accounts in the live database with no delete endpoint, so they are exercised
+  // only by the workflow test suite (in-memory, safe to re-run) and not here.
 
   console.log(`\n${pass} passed, ${fail} failed, ${pass + fail} total. Test ticket: ${tn}`);
   require('fs').writeFileSync('live-api-results.json', JSON.stringify({ run: new Date().toISOString(), api: API, ticket: tn, pass, fail, rows }, null, 2));

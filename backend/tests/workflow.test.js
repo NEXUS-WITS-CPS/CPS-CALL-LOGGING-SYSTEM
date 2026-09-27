@@ -4,6 +4,7 @@ process.env.SUPABASE_URL='x'; process.env.SUPABASE_SERVICE_KEY='k'; process.env.
 const path=require('path'); const fake=require('./fake');
 require.cache[require.resolve('../supabaseClient')] = { id:'x', filename:'x', loaded:true, exports:fake };
 const jwt=require('jsonwebtoken');
+const bcrypt=require('bcryptjs');
 const T=fake.tables;
 T.users.push(
  {user_id:1,full_name:'Ashley Admin',email:'a',role:'admin',is_active:true},
@@ -91,6 +92,46 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  check('assignee notified of cancellation',T.notifications.some(n=>n.recipient_id===3&&n.notification_type==='ticket_cancelled'));
  check('cancellation recorded in audit trail',T.audit_trail.some(a=>a.incident_id===inc5.incident_id&&a.action_description.startsWith('Ticket Cancelled')));
  r=await call('PATCH',`/incidents/${t1}/cancel`,A,{reason:'Trying to cancel a closed ticket'}); check('cannot cancel a closed ticket (409)',r.s===409);
+
+ // ── GET /auth/me ──
+ r=await call('GET','/auth/me',O); check('officer can read own profile (/auth/me)',r.s===200&&r.j.user?.email==='m'&&r.j.user?.role==='officer',JSON.stringify(r.j));
+ r=await call('GET','/auth/me',null); check('/auth/me without token rejected (401)',r.s===401);
+
+ // ── POST /auth/register (admin only) ──
+ r=await call('POST','/auth/register',O,{fullName:'New Tech',email:'newtech@wits.ac.za',password:'pass1234',role:'technician'});
+ check('non-admin cannot register a user (403)',r.s===403);
+ r=await call('POST','/auth/register',A,{fullName:'New Tech',email:'newtech@wits.ac.za',password:'pass1234',role:'technician'});
+ check('admin registers a new user (201)',r.s===201&&r.j.user?.role==='technician',JSON.stringify(r.j));
+ const newUserId=r.j.user?.user_id;
+ r=await call('POST','/auth/register',A,{fullName:'Dup Tech',email:'newtech@wits.ac.za',password:'pass1234',role:'technician'});
+ check('duplicate email on register rejected (409)',r.s===409);
+ // fake DB has no password_hash comparison seam other than bcrypt, so confirm the route hashed it
+ const newUserRow=T.users.find(u=>u.user_id===newUserId);
+ check('registered user has a bcrypt password hash stored',await bcrypt.compare('pass1234',newUserRow?.password_hash||''));
+
+ // ── PATCH /users/:userId/deactivate (admin only) — then login is blocked ──
+ r=await call('PATCH',`/users/${newUserId}/deactivate`,O,{}); check('non-admin cannot deactivate a user (403)',r.s===403);
+ r=await call('POST','/auth/login',null,{email:'newtech@wits.ac.za',password:'pass1234'});
+ check('newly registered user can log in before deactivation (200)',r.s===200&&r.j.token,JSON.stringify(r.j));
+ r=await call('PATCH',`/users/${newUserId}/deactivate`,A,{}); check('admin deactivates a user (200)',r.s===200&&newUserRow?.is_active===false,JSON.stringify(r.j));
+ r=await call('POST','/auth/login',null,{email:'newtech@wits.ac.za',password:'pass1234'});
+ check('deactivated user cannot log in (401)',r.s===401);
+
+ // ── GET /dashboard/recent — role-scoped ──
+ r=await call('GET','/dashboard/recent',A); check('admin sees recent tickets',r.s===200&&Array.isArray(r.j.incidents));
+ r=await call('GET','/dashboard/recent',TE);
+ check('technician recent tickets only include their own',r.s===200&&(r.j.incidents||[]).every(i=>i.assigned_to===3),JSON.stringify(r.j));
+
+ // ── GET /incidents/status/pending-confirmation ──
+ r=await call('POST','/incidents',O,good); const t6=r.j.ticketNumber;
+ await call('PATCH',`/incidents/${t6}/assign`,A,{assignTo:3});
+ await call('PATCH',`/incidents/${t6}/resolve`,TE,{resolutionNotes:'Replaced the faulty sensor and tested it',timeSpent:30});
+ r=await call('GET','/incidents/status/pending-confirmation',O);
+ check('pending-confirmation list includes the newly resolved ticket',r.s===200&&(r.j.incidents||[]).some(i=>i.ticket_number===t6),JSON.stringify(r.j));
+
+ // ── GET /reports/technician-performance/:userId (admin-only drill-down) ──
+ r=await call('GET',`/reports/technician-performance/3`,A); check('admin can drill down into a technician\'s performance',r.s===200);
+ r=await call('GET',`/reports/technician-performance/3`,O); check('officer cannot access the technician drill-down report (403)',r.s===403);
 
  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 })();

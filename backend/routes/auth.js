@@ -122,7 +122,8 @@ router.post('/register', authMiddleware, async (req, res) => {
         full_name:     fullName,
         email:         email.toLowerCase().trim(),
         password_hash: passwordHash,
-        role
+        role,
+        is_active:     true
       })
       .select('user_id, full_name, email, role')
       .single();

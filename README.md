@@ -39,8 +39,8 @@ Passwords are stored as bcrypt hashes in the database (run `sql/1-set-passwords.
 
 ## Running the tests
 From the `backend` folder (`npm install` first):
-- `npm test` runs the workflow tests against an in-memory database (no credentials needed).
-- Live API suite (57 checks against the deployed API, including Cancel Incident): set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to the demo passwords, then `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards.
+- `npm test` runs the workflow tests (67 checks, including Cancel Incident, `/auth/me`, register/deactivate, dashboard/recent and the technician drill-down report) against an in-memory database (no credentials needed).
+- Live API suite (61 checks against the deployed API): set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to the demo passwords, then `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards. Register/deactivate are not exercised here since they would create permanent accounts in the live database.
 
 ## Pages
 - Login
