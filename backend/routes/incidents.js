@@ -162,6 +162,7 @@ router.get('/', async (req, res) => {
 
     if (req.user.role === 'caller') query = query.eq('caller_id', req.user.userId);
     else if (req.user.role === 'technician') query = query.eq('assigned_to', req.user.userId);
+    else if (req.user.role === 'officer') query = query.eq('logged_by', req.user.userId);
 
     if (status && status !== 'all') query = query.eq('status', status);
     if (priority && priority !== 'all') query = query.eq('priority', priority);

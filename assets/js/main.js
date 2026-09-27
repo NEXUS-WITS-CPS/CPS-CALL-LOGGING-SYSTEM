@@ -230,13 +230,21 @@ async function loadAdminDashboard() {
 
 async function loadOfficerDashboard() {
   try {
-    const [s, r] = await Promise.all([apiFetch('/dashboard/summary'), apiFetch('/dashboard/recent?limit=10')]);
+    // Backend now scopes GET /incidents to this officer's own logged tickets
+    // (see backend/routes/incidents.js), so fetch that instead of the
+    // org-wide /dashboard/summary + /dashboard/recent feed — "My Tickets"
+    // was previously showing the org-wide total, same bug loadTechDashboard
+    // already avoids.
+    const r = await apiFetch('/incidents');
+    const inc = r.incidents || [];
+
     const nums = document.querySelectorAll('.stat-number');
-    if (nums[0]) nums[0].textContent = s.summary.total;
-    if (nums[1]) nums[1].textContent = s.summary.open;
-    if (nums[2]) nums[2].textContent = s.summary.inProgress;
-    if (nums[3]) nums[3].textContent = s.summary.resolved + s.summary.closed;
-    renderTable(r.incidents || [], 'officer');
+    if (nums[0]) nums[0].textContent = inc.length;
+    if (nums[1]) nums[1].textContent = inc.filter(i => i.status === 'open').length;
+    if (nums[2]) nums[2].textContent = inc.filter(i => i.status === 'in_progress').length;
+    if (nums[3]) nums[3].textContent = inc.filter(i => ['resolved','pending_confirmation','closed'].includes(i.status)).length;
+
+    renderTable(inc.slice(0, 10), 'officer');
   } catch(e) { console.error('Officer dashboard:', e); }
 }
 
