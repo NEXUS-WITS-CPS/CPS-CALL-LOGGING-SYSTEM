@@ -6,14 +6,17 @@ Wits Campus Protection Services (CPS) to replace the
 third-party Fidelity Pulse platform.
 
 ## Status: Iteration 4 (Construction 1)
-All six core use cases are implemented end to end: UC1 Log, UC2 Track, UC3 Confirm/Close, UC4 Assign, UC5 Resolve, UC6 Escalate (manual and automatic on SLA breach), plus five reports (Resolution Time, Call Volume, Priority Analysis, Incident History, Technician Performance) with a reporting period, drill-down and CSV/Excel/PDF export.
+All six core use cases are implemented end to end: UC1 Log, UC2 Track, UC3 Confirm/Close, UC4 Assign, UC5 Resolve, UC6 Escalate (manual and automatic on SLA breach), plus a Cancel Incident (soft-delete) feature, five reports (Resolution Time, Call Volume, Priority Analysis, Incident History, Technician Performance) with a reporting period, drill-down and CSV/Excel/PDF export, and a fully responsive UI (mobile, tablet, laptop and large-display breakpoints).
 
 - Front end: https://nexus-wits-cps.github.io/CPS-CALL-LOGGING-SYSTEM/ (GitHub Pages)
 - API: https://wits-cps-api.onrender.com (Render free tier; the first request after inactivity can take about a minute)
 - Database: Supabase PostgreSQL, Row Level Security enabled
 
-Ticket statuses: Open, In Progress, Escalated, Pending Confirmation, Closed. Notifications are in-app only.
-Deferred to Construction 2: email/SMS notifications, Cancel Incident, update details/attachments, user-management and system-table screens, profile/password change, client-hosted deployment.
+Ticket statuses: Open, In Progress, Escalated, Pending Confirmation, Closed, Cancelled. Notifications are in-app only.
+
+Cancel Incident: an admin can cancel any ticket that isn't already closed/cancelled; an officer can only cancel a ticket they logged themselves, and only while it is still open (before a technician has been assigned). Cancelling never deletes the row — it sets status = `cancelled` so the ticket number and audit trail stay intact for accountability. Available from the Track Incident detail view.
+
+Deferred to Construction 2: email/SMS notifications, update details/attachments, user-management and system-table screens, profile/password change, client-hosted deployment.
 
 ## Demo Credentials
 Passwords are stored as bcrypt hashes in the database (run `sql/1-set-passwords.sql` once to set them).
@@ -37,7 +40,7 @@ Passwords are stored as bcrypt hashes in the database (run `sql/1-set-passwords.
 ## Running the tests
 From the `backend` folder (`npm install` first):
 - `npm test` runs the workflow tests against an in-memory database (no credentials needed).
-- Live API suite (49 checks against the deployed API): set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to the demo passwords, then `node tests/live-api.test.js`. It creates a TEST ticket each run; delete it afterwards.
+- Live API suite (57 checks against the deployed API, including Cancel Incident): set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to the demo passwords, then `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards.
 
 ## Pages
 - Login

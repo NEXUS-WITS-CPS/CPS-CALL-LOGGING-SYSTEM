@@ -349,7 +349,7 @@ async function loadTechDashboard() {
 function renderTable(incidents, role) {
   const tbody = document.querySelector('.tickets-table tbody');
   if (!tbody) return;
-  if (!incidents.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'; return; }
+  if (!incidents.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No tickets found.</td></tr>'; return; }
   tbody.innerHTML = incidents.map(i => {
     const loc  = i.locations?.location_name || '—';
     const asgn = i.assigned_user?.full_name || 'Unassigned';
@@ -997,31 +997,5 @@ async function handleSearch(event) {
   } catch(err) { alert(err.message||'Ticket not found.'); }
 }
 
-function viewTicket(tn,desc,loc,cat,pri,st,asgn,date) {
-  document.getElementById('detailTicketNumber').textContent=tn;
-  document.getElementById('detailDescription').textContent=desc;
-  document.getElementById('detailLocation').textContent=loc;
-  document.getElementById('detailCategory').textContent=cat;
-  document.getElementById('detailPriority').textContent=pri;
-  document.getElementById('detailStatus').textContent=st;
-  document.getElementById('detailAssignedTo').textContent=asgn;
-  document.getElementById('detailDate').textContent=`Logged: ${date}`;
-  const detail=document.getElementById('ticketDetail');
-  if (detail) { detail.style.display='block'; detail.scrollIntoView({ behavior:'smooth' }); }
-}
-
-// ── REPORTS ──
-function handleFilter(event) {
-  event.preventDefault();
-  const df=document.getElementById('dateFrom')?.value;
-  const dt=document.getElementById('dateTo')?.value;
-  if (df&&dt&&df>dt) { alert('Date From cannot be after Date To.'); return; }
-  alert('Report filters applied successfully!');
-}
-function generateReport(name) {
-  document.getElementById('reportModalTitle').textContent=name;
-  document.getElementById('reportModalMessage').textContent=`Live data for: ${name}`;
-  document.getElementById('reportModal').showModal();
-}
-function closeReportModal() { document.getElementById('reportModal').close(); }
-function exportData(fmt) { alert(`Exporting data as ${fmt}...`); }
+// Note: Reports & Analytics (generateReport, exportCSV/Excel/PDF, filtering)
+// is implemented with live data directly in pages/reports.html.

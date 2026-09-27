@@ -62,7 +62,7 @@ async function call(method, path, token, body) {
   check('REQ-01', 'Requirements', 'Lookups (categories, locations) load', !!categoryId && !!locationId);
   const valid = { callerName: 'TEST Caller', callerContact: '0111234567', categoryId, locationId, priority: 'low', description: 'TEST ticket created by automated API test run' };
   const bodies = [
-    ['INP-01', 'Missing caller name', { ...valid, callerName: '' }],
+    ['INP-01', 'Missing caller contact', { ...valid, callerContact: '' }],
     ['INP-02', 'Description too short (<10)', { ...valid, description: 'short' }],
     ['INP-03', 'Invalid priority value', { ...valid, priority: 'urgent' }],
     ['INP-04', 'Contact with letters', { ...valid, callerContact: 'abc-not-a-number' }],
@@ -72,6 +72,15 @@ async function call(method, path, token, body) {
   for (const [id, name, b] of bodies) { const r = await call('POST', '/incidents', T.officer, b); check(id, 'Input Field', name + ' rejected (400)', r.s === 400, r.s); }
   const xss = await call('POST', '/incidents', T.officer, { ...valid, description: '<script>alert(1)</script> TEST xss payload stored as text' });
   check('INP-07', 'Input Field', 'Script tag accepted as plain text (escaped on display)', xss.s === 201, xss.s);
+
+  // Reported By / caller name is no longer a client-supplied field (Construction 1
+  // fix: the officer logging the ticket IS the caller, so the UI auto-fills and
+  // locks this field). Confirm the server enforces this too and won't let a
+  // spoofed name through even if a client sends one.
+  const nameSpoof = await call('POST', '/incidents', T.officer, { ...valid, callerName: 'TEST Spoofed Name' });
+  check('SEC-12', 'Security', 'Caller name is taken from the signed-in officer, not client input',
+    nameSpoof.s === 201 && nameSpoof.j.incident?.caller_name !== 'TEST Spoofed Name',
+    nameSpoof.s + ' ' + nameSpoof.j.incident?.caller_name);
 
   const logged = await call('POST', '/incidents', T.officer, valid);
   const tn = logged.j.ticketNumber;
@@ -130,6 +139,28 @@ async function call(method, path, token, body) {
   check('UC3-04', 'Scenario', 'Ticket status is closed', closed.j.incident?.status === 'closed', closed.j.incident?.status);
   const audit = await call('GET', `/incidents/${tn}/audit`, T.admin);
   check('UC2-03', 'Scenario', 'Audit trail has >= 6 entries for full lifecycle', (audit.j.auditTrail || audit.j.audit || []).length >= 6, JSON.stringify(Object.keys(audit.j)));
+
+  // ---- Cancel Incident (soft delete)
+  const cancelLog = await call('POST', '/incidents', T.officer, valid);
+  const tnCancel = cancelLog.j.ticketNumber;
+  const shortReason = await call('PATCH', `/incidents/${tnCancel}/cancel`, T.officer, { reason: 'no' });
+  check('INP-12', 'Input Field', 'Cancel reason <5 chars refused (400)', shortReason.s === 400, shortReason.s);
+  const techCancel = await call('PATCH', `/incidents/${tnCancel}/cancel`, T.tech, { reason: 'TEST technician should not be able to do this' });
+  check('SEC-13', 'Security', 'Technician cannot cancel a ticket (403)', techCancel.s === 403, techCancel.s);
+  const ownCancel = await call('PATCH', `/incidents/${tnCancel}/cancel`, T.officer, { reason: 'TEST duplicate call, cancelling' });
+  check('UC-CAN-01', 'Scenario', 'Officer cancels their own open ticket', ownCancel.s === 200, ownCancel.s + ' ' + JSON.stringify(ownCancel.j));
+  const afterCancel = await call('GET', '/incidents/' + tnCancel, T.officer);
+  check('UC-CAN-02', 'Scenario', 'Cancelled ticket status is cancelled', afterCancel.j.incident?.status === 'cancelled', afterCancel.j.incident?.status);
+  const doubleCancel = await call('PATCH', `/incidents/${tnCancel}/cancel`, T.officer, { reason: 'TEST cancelling twice' });
+  check('UC-CAN-03', 'Scenario', 'Cannot cancel an already-cancelled ticket (409)', doubleCancel.s === 409, doubleCancel.s);
+
+  const cancelLog2 = await call('POST', '/incidents', T.officer, valid);
+  const tnCancel2 = cancelLog2.j.ticketNumber;
+  await call('PATCH', `/incidents/${tnCancel2}/assign`, T.admin, { assignTo: T.techId });
+  const officerCancelAssigned = await call('PATCH', `/incidents/${tnCancel2}/cancel`, T.officer, { reason: 'TEST trying to cancel after assignment' });
+  check('UC-CAN-04', 'Scenario', 'Officer cannot cancel once a ticket is assigned (403)', officerCancelAssigned.s === 403, officerCancelAssigned.s);
+  const adminCancelAssigned = await call('PATCH', `/incidents/${tnCancel2}/cancel`, T.admin, { reason: 'TEST admin cancelling an assigned ticket' });
+  check('UC-CAN-05', 'Scenario', 'Admin can cancel any non-closed ticket', adminCancelAssigned.s === 200, adminCancelAssigned.s);
 
   // ---- Reports & dashboard & notifications
   for (const [id, p] of [['RPT-01', '/reports/resolution-time'], ['RPT-02', '/reports/call-volume'], ['RPT-03', '/reports/priority-analysis'], ['RPT-04', '/reports/incident-history'], ['RPT-05', '/reports/technician-performance'], ['RPT-06', '/dashboard/summary'], ['REQ-N1', '/notifications']]) {

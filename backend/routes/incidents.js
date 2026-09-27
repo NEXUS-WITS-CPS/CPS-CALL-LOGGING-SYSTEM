@@ -80,9 +80,14 @@ function wrongStatus(res, inc, allowed, verb) {
 // =====================================================
 router.post('/', requireRole('admin', 'officer'), async (req, res) => {
   try {
-    const { callerName, callerContact, categoryId, locationId, priority, description, additionalNotes } = req.body;
+    const { callerContact, categoryId, locationId, priority, description, additionalNotes } = req.body;
+    // The caller/reporter is always the signed-in officer logging the ticket —
+    // never trust a client-supplied name for this. The UI reflects this by
+    // making the "Reported By" field read-only and auto-filled; this is the
+    // server-side guarantee that holds even if that check is bypassed.
+    const callerName = req.user.fullName;
 
-    if (!callerName || !callerContact || !categoryId || !locationId || !priority || !description) {
+    if (!callerContact || !categoryId || !locationId || !priority || !description) {
       return res.status(400).json({ error: 'All required fields must be completed.' });
     }
     if (!Number.isInteger(parseInt(categoryId)) || !Number.isInteger(parseInt(locationId))) {

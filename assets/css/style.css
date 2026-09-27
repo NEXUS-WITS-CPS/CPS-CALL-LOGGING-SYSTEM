@@ -464,6 +464,27 @@ body {
   background-color: #eafaf1;
   color: #1e8449;
 }
+
+.badge.escalated {
+  background-color: #f4ecf7;
+  color: #6c3483;
+}
+
+.badge.pendingconfirmation {
+  background-color: #eaf2fb;
+  color: #1a5276;
+}
+
+.badge.closed {
+  background-color: #eceff1;
+  color: #37474f;
+}
+
+.badge.cancelled {
+  background-color: #f0f0f0;
+  color: #757575;
+  text-decoration: line-through;
+}
 /* =====================
    FORM CARD
 ===================== */

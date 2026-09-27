@@ -75,5 +75,22 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  check('admins notified of SLA breach',T.notifications.some(n=>n.recipient_id===1&&n.notification_type==='sla_breach'));
  r=await call('GET','/notifications',A); check('admin can read notifications',r.s===200&&r.j.notifications&&Array.isArray(r.j.notifications));
  r=await call('PATCH','/notifications/read-all',A); check('mark all read',r.s===200&&T.notifications.filter(n=>n.recipient_id===1).every(n=>n.is_read));
+
+ // ── Cancel Incident (soft delete) ──
+ r=await call('POST','/incidents',O,good); const t4=r.j.ticketNumber; const inc4=T.incidents.find(i=>i.ticket_number===t4);
+ r=await call('PATCH',`/incidents/${t4}/cancel`,TE,{reason:'No longer needed'}); check('technician cannot cancel (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${t4}/cancel`,O,{reason:'no'}); check('cancel reason too short rejected (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${t4}/cancel`,O6,{reason:'Duplicate call logged twice'}); check('other officer cannot cancel (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${t4}/cancel`,O,{reason:'Duplicate call logged twice'}); check('officer cancels own open ticket',r.s===200&&inc4.status==='cancelled',JSON.stringify(r.j));
+ r=await call('PATCH',`/incidents/${t4}/cancel`,O,{reason:'Duplicate call logged twice'}); check('cannot cancel an already-cancelled ticket (409)',r.s===409);
+
+ r=await call('POST','/incidents',O,good); const t5=r.j.ticketNumber; const inc5=T.incidents.find(i=>i.ticket_number===t5);
+ await call('PATCH',`/incidents/${t5}/assign`,A,{assignTo:3});
+ r=await call('PATCH',`/incidents/${t5}/cancel`,O,{reason:'Trying to cancel after assignment'}); check('officer cannot cancel once assigned (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${t5}/cancel`,A,{reason:'Officer requested cancellation'}); check('admin can cancel an in-progress ticket',r.s===200&&inc5.status==='cancelled');
+ check('assignee notified of cancellation',T.notifications.some(n=>n.recipient_id===3&&n.notification_type==='ticket_cancelled'));
+ check('cancellation recorded in audit trail',T.audit_trail.some(a=>a.incident_id===inc5.incident_id&&a.action_description.startsWith('Ticket Cancelled')));
+ r=await call('PATCH',`/incidents/${t1}/cancel`,A,{reason:'Trying to cancel a closed ticket'}); check('cannot cancel a closed ticket (409)',r.s===409);
+
  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 })();
