@@ -1141,3 +1141,23 @@ body {
 .notif-item.unread { background: #eef5fb; border-left: 3px solid #003B5C; }
 .notif-item small { color: #6b7280; font-size: 11px; }
 .notif-empty { padding: 18px 14px; text-align: center; color: #9ca3af; font-size: 13px; }
+
+/* ── COLD-START NOTICE (Render free tier sleeps after ~15min idle; the
+   first request after that takes 20-40s to wake it up). Shown by apiFetch()
+   in main.js when a request is taking unusually long, so a slow first
+   load doesn't look like the site is broken or the login failed. ── */
+.cold-start-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  background: #003B5C;
+  color: #ffffff;
+  font-size: 13px;
+  text-align: center;
+  padding: 10px 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: none;
+}
+.cold-start-banner.visible { display: block; }

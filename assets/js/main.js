@@ -46,12 +46,48 @@ function getUser()   { return JSON.parse(sessionStorage.getItem('cps_user') || '
 function setSession(token, user) { sessionStorage.setItem('cps_token', token); sessionStorage.setItem('cps_user', JSON.stringify(user)); }
 function clearSession() { sessionStorage.removeItem('cps_token'); sessionStorage.removeItem('cps_user'); }
 
+// ── COLD-START NOTICE ──
+// Render's free tier spins the backend down after ~15min idle; the first
+// request after that takes 20-40s to wake it up, during which the page
+// otherwise just looks stuck. If a request is still pending after
+// COLD_START_DELAY_MS, show a banner explaining the wait so it doesn't
+// look like the login (or whatever page) failed or froze.
+const COLD_START_DELAY_MS = 3500;
+let coldStartTimer = null;
+let coldStartActiveRequests = 0;
+function getColdStartBanner() {
+  let el = document.getElementById('coldStartBanner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'coldStartBanner';
+    el.className = 'cold-start-banner';
+    el.textContent = 'Waking up the server — this can take up to a minute if it has been idle. Hang tight…';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showColdStartBanner() { getColdStartBanner().classList.add('visible'); }
+function hideColdStartBanner() { document.getElementById('coldStartBanner')?.classList.remove('visible'); }
+
 async function apiFetch(endpoint, options = {}) {
   const token = getToken();
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(options.headers || {}) }
-  });
+  coldStartActiveRequests++;
+  if (!coldStartTimer) coldStartTimer = setTimeout(showColdStartBanner, COLD_START_DELAY_MS);
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}), ...(options.headers || {}) }
+    });
+  } finally {
+    coldStartActiveRequests--;
+    if (coldStartActiveRequests <= 0) {
+      coldStartActiveRequests = 0;
+      clearTimeout(coldStartTimer);
+      coldStartTimer = null;
+      hideColdStartBanner();
+    }
+  }
   let data = {};
   try { data = await res.json(); } catch(e) { /* non-JSON response */ }
   if (res.status === 401 && token) {
