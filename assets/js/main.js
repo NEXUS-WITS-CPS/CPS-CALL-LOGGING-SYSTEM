@@ -249,6 +249,10 @@ window.onload = function() {
   const df = document.getElementById('incidentDate');
   const tf = document.getElementById('incidentTime');
   if (df && tf) { const now = new Date(); df.value = now.toISOString().split('T')[0]; tf.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`; }
+  // Log Incident's "Reported By" is read-only and always the signed-in
+  // officer — see handleLogIncident for why it's no longer a typed field.
+  const callerNameField = document.getElementById('callerName');
+  if (callerNameField && callerNameField.readOnly) callerNameField.value = getUser()?.fullName || '';
 };
 
 // ── DASHBOARDS ──
@@ -372,10 +376,11 @@ async function loadLookups() {
 // Mirrors the backend's own checks in POST /api/incidents (backend/routes/incidents.js)
 // so a bad value is caught here, on the field, instead of only after a round trip
 // to the server — same fix as handleResolveIncident's validation.
+// "Reported By" isn't in here: it's no longer free text (see handleLogIncident),
+// so there's nothing for the user to get wrong on that field anymore.
 const CALLER_CONTACT_PATTERN = /^[0-9+()\s-]{7,20}$/;
 function validateLogIncidentField(id, value) {
   switch (id) {
-    case 'callerName':    return value ? null : 'Caller name is required.';
     case 'callerContact':
       if (!value) return 'Contact number is required.';
       return CALLER_CONTACT_PATTERN.test(value) ? null : 'Contact number may only contain digits, spaces, + ( ) and -, and must be 7–20 characters.';
@@ -389,10 +394,14 @@ function validateLogIncidentField(id, value) {
 
 async function handleLogIncident(event) {
   event.preventDefault();
-  const fieldIds = ['callerName','callerContact','category','location','priority','description'];
+  const fieldIds = ['callerContact','category','location','priority','description'];
   const fields = {};
   fieldIds.forEach(id => { fields[id] = document.getElementById(id); fields[id]?.classList.remove('field-invalid'); });
-  const callerName    = fields.callerName?.value.trim();
+  // The officer logging the incident IS the caller — the account signed in
+  // right now, not a name typed into a field. Take it straight from the
+  // session rather than the (now read-only, display-only) input, so it
+  // can't be tampered with client-side and there's nothing to mistype.
+  const callerName    = getUser()?.fullName || '';
   const callerContact = fields.callerContact?.value.trim();
   const categoryId    = fields.category?.value;
   const locationId    = fields.location?.value;
@@ -404,7 +413,7 @@ async function handleLogIncident(event) {
   const btn           = event.target.querySelector('button[type="submit"]');
   errEl.textContent = ''; successEl.style.display = 'none';
 
-  const values = { callerName, callerContact, category:categoryId, location:locationId, priority, description };
+  const values = { callerContact, category:categoryId, location:locationId, priority, description };
   const problems = [];
   for (const id of fieldIds) {
     const msg = validateLogIncidentField(id, values[id]);

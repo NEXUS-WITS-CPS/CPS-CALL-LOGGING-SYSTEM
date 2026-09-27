@@ -102,6 +102,14 @@ body {
   border-color: #003B5C;
 }
 
+/* Read-only, auto-filled fields (e.g. Log Incident's "Reported By") —
+   visually distinct so it's clear there's nothing to type here. */
+.form-group input[readonly] {
+  background-color: #f0f2f4;
+  color: #555;
+  cursor: default;
+}
+
 /* Error Message */
 .error-message {
   color: #e74c3c;

@@ -70,17 +70,17 @@
 
         <form id="incidentForm" onsubmit="handleLogIncident(event)">
 
-          <!-- Row 1: Caller Name & Contact -->
+          <!-- Row 1: Reported By (auto — the logged-in officer) & Contact -->
           <section class="form-row">
             <div class="form-group">
-              <label for="callerName">Caller Name <span class="required">*</span></label>
+              <label for="callerName">Reported By</label>
               <input
                 type="text"
                 id="callerName"
                 name="callerName"
-                placeholder="Enter caller full name"
-                required
+                readonly
               />
+              <span class="field-hint">This is your account — filled in automatically.</span>
             </div>
             <div class="form-group">
               <label for="callerContact">Contact Number <span class="required">*</span></label>
