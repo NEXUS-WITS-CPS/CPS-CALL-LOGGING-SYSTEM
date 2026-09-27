@@ -20,7 +20,7 @@ const { runSlaCheck }    = require('./lib/sla');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// Behind Render/Railway's proxy — needed so rate limiting sees each visitor's real IP
+// Behind Render's proxy — needed so rate limiting sees each visitor's real IP
 app.set('trust proxy', 1);
 
 // ── SECURITY MIDDLEWARE ──
