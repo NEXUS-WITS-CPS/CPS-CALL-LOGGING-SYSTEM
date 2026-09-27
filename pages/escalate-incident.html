@@ -65,7 +65,7 @@
       <section class="table-section">
         <header class="table-header">
           <h2>Tickets Available for Escalation</h2>
-          <span class="badge-count">3 tickets</span>
+          <span class="badge-count">Loading…</span>
         </header>
 
         <table class="tickets-table">
@@ -82,73 +82,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>CLS-2026-007</td>
-              <td>Fire exit blocked by equipment</td>
-              <td>Admin Block</td>
-              <td><span class="badge critical">Critical</span></td>
-              <td><span class="badge open">Open</span></td>
-              <td>4h 32m</td>
-              <td><span class="sla-badge breached">SLA Breached</span></td>
-              <td>
-                <button
-                  class="btn-assign"
-                  onclick="openEscalateModal(
-                    'CLS-2026-007',
-                    'Fire exit blocked by equipment',
-                    'Critical',
-                    'breached'
-                  )">
-                  Escalate
-                </button>
-              </td>
-            </tr>
-            <tr>
-              <td>CLS-2026-002</td>
-              <td>Broken access control panel</td>
-              <td>Science Block</td>
-              <td><span class="badge high">High</span></td>
-              <td><span class="badge inprogress">In Progress</span></td>
-              <td>2h 15m</td>
-              <td>
-                <span class="sla-badge approaching">Approaching</span>
-              </td>
-              <td>
-                <button
-                  class="btn-assign"
-                  onclick="openEscalateModal(
-                    'CLS-2026-002',
-                    'Broken access control panel',
-                    'High',
-                    'approaching'
-                  )">
-                  Escalate
-                </button>
-              </td>
-            </tr>
-            <tr>
-              <td>CLS-2026-001</td>
-              <td>Suspicious person at gate 1</td>
-              <td>Main Gate</td>
-              <td><span class="badge critical">Critical</span></td>
-              <td><span class="badge open">Open</span></td>
-              <td>1h 45m</td>
-              <td>
-                <span class="sla-badge within">Within SLA</span>
-              </td>
-              <td>
-                <button
-                  class="btn-assign"
-                  onclick="openEscalateModal(
-                    'CLS-2026-001',
-                    'Suspicious person at gate 1',
-                    'Critical',
-                    'within'
-                  )">
-                  Escalate
-                </button>
-              </td>
-            </tr>
+            <tr><td colspan="8" style="text-align:center;padding:20px;color:#999;">Loading tickets...</td></tr>
           </tbody>
         </table>
       </section>

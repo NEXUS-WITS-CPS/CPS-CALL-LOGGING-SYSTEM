@@ -342,10 +342,6 @@ async function loadTechDashboard() {
     if (nums[2]) nums[2].textContent = inc.filter(i => i.status === 'in_progress').length;
     if (nums[3]) nums[3].textContent = inc.filter(i => ['resolved','pending_confirmation','closed'].includes(i.status)).length;
 
-    // Remove the badge count — it's redundant
-    const badge = document.querySelector('.badge-count');
-    if (badge) badge.style.display = 'none';
-
     renderTable(inc, 'technician');
   } catch(e) { console.error('Tech dashboard:', e); }
 }
