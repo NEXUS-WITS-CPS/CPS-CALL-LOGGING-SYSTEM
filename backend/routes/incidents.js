@@ -457,6 +457,63 @@ router.patch('/:ticketNumber/confirm', requireRole('admin', 'officer'), async (r
 });
 
 // =====================================================
+// CANCEL (SOFT-DELETE) INCIDENT  (admin: any ticket, not already
+// closed/cancelled · officer: only a ticket they logged themselves,
+// and only while it is still "open" — before a technician has been
+// assigned or done any work on it)
+// This never removes the row: it sets status='cancelled' so the ticket
+// number, audit trail and any resolution history stay intact for
+// accountability, it just drops off the active queues.
+// =====================================================
+router.patch('/:ticketNumber/cancel', requireRole('admin', 'officer'), async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason || !reason.trim() || reason.trim().length < 5) {
+      return res.status(400).json({ error: 'Please give a reason (at least 5 characters) for cancelling this ticket.' });
+    }
+
+    const incident = await loadIncident(req.params.ticketNumber);
+    if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
+
+    if (['closed', 'cancelled'].includes(incident.status)) {
+      return res.status(409).json({ error: `Ticket ${incident.ticket_number} is already ${incident.status} and cannot be cancelled.` });
+    }
+
+    if (req.user.role === 'officer') {
+      if (incident.logged_by !== req.user.userId) {
+        return res.status(403).json({ error: 'You can only cancel tickets you logged yourself.' });
+      }
+      if (incident.status !== 'open') {
+        return res.status(403).json({ error: 'This ticket has already been assigned or actioned — ask an admin to cancel it.' });
+      }
+    }
+    // admin may cancel from any status other than closed/cancelled, checked above.
+
+    const now = new Date().toISOString();
+    const { data: updated, error } = await supabase
+      .from('incidents')
+      .update({ status: 'cancelled', date_closed: now })
+      .eq('ticket_number', incident.ticket_number)
+      .select().single();
+    if (error) throw error;
+
+    await writeAudit(incident.incident_id, req.user.userId,
+      `Ticket Cancelled by ${req.user.fullName}. Reason: ${reason.trim()}`,
+      `status: ${incident.status}`, 'status: cancelled');
+
+    if (incident.assigned_to) {
+      await notify(incident.incident_id, [incident.assigned_to], 'ticket_cancelled',
+        `Ticket ${incident.ticket_number} was cancelled by ${req.user.fullName}. Reason: ${reason.trim()}`);
+    }
+
+    res.json({ message: `Ticket ${incident.ticket_number} cancelled.`, incident: updated });
+  } catch (err) {
+    console.error('Cancel error:', err);
+    res.status(500).json({ error: err.message || 'Failed to cancel incident.' });
+  }
+});
+
+// =====================================================
 // GET /api/incidents/:ticketNumber/audit
 // =====================================================
 router.get('/:ticketNumber/audit', async (req, res) => {

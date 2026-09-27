@@ -67,6 +67,7 @@
             <span class="badge" id="detailStatus">—</span>
           </section>
           <span class="ticket-detail-date" id="detailDate">—</span>
+          <button id="cancelTicketBtn" class="btn-assign" style="background:#dc2626;border-color:#dc2626;display:none;margin-left:12px;" onclick="openCancelModal()">🗑️ Cancel Ticket</button>
         </header>
         <section class="ticket-info-grid">
           <article class="ticket-info-item">
@@ -93,6 +94,30 @@
           </ul>
         </section>
       </section>
+
+      <!-- Cancel Ticket Modal -->
+      <dialog id="cancelModal" class="modal">
+        <section class="modal-content">
+          <header class="modal-header">
+            <h2>Cancel Ticket</h2>
+            <button class="modal-close" onclick="closeCancelModal()">✕</button>
+          </header>
+          <p style="font-size:13px;color:#666;margin-bottom:16px;">
+            This voids the ticket — it stays on record for audits, but drops off active queues and can't be reopened from here.
+          </p>
+          <form id="cancelForm" onsubmit="handleCancelTicket(event)">
+            <div class="form-group">
+              <label for="cancelReason">Reason <span class="required">*</span></label>
+              <textarea id="cancelReason" rows="3" placeholder="Why is this ticket being cancelled? (min 5 characters)"></textarea>
+            </div>
+            <p id="cancelErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
+            <section class="form-actions">
+              <button type="button" class="btn-secondary" onclick="closeCancelModal()">Back</button>
+              <button type="submit" class="btn-primary" style="background:#dc2626;">Confirm Cancel</button>
+            </section>
+          </form>
+        </section>
+      </dialog>
 
       <!-- All Tickets Table -->
       <section class="table-section">
@@ -157,6 +182,22 @@
       await handleSearch({ preventDefault: ()=>{} });
     }
 
+    // Currently-displayed ticket, kept for the Cancel modal.
+    let currentDetailTicket = null;
+
+    // Whether the signed-in user is allowed to cancel this ticket — mirrors
+    // the backend's own check in PATCH /incidents/:ticketNumber/cancel:
+    // admin can cancel anything not already closed/cancelled; an officer
+    // only a ticket they logged themselves, and only while still "open".
+    function canCancelTicket(i) {
+      const user = getUser();
+      if (!user) return false;
+      if (['closed', 'cancelled'].includes(i.status)) return false;
+      if (user.role === 'admin') return true;
+      if (user.role === 'officer') return i.logged_by === user.userId && i.status === 'open';
+      return false;
+    }
+
     // Override handleSearch to show detail card
     async function handleSearch(event) {
       event.preventDefault();
@@ -165,6 +206,9 @@
       try {
         const data = await apiFetch(`/incidents/${tn}`);
         const i = data.incident;
+        currentDetailTicket = i;
+        const cancelBtn = document.getElementById('cancelTicketBtn');
+        if (cancelBtn) cancelBtn.style.display = canCancelTicket(i) ? 'inline-block' : 'none';
         document.getElementById('detailTicketNumber').textContent = i.ticket_number;
         document.getElementById('detailDescription').textContent  = i.description;
         document.getElementById('detailLocation').textContent     = i.locations?.location_name||'—';
@@ -193,6 +237,52 @@
         document.getElementById('ticketDetail').scrollIntoView({ behavior:'smooth' });
       } catch(err) { alert(err.message||'Ticket not found.'); }
     }
+
+    function openCancelModal() {
+      const errEl = document.getElementById('cancelErrorMessage');
+      const reasonEl = document.getElementById('cancelReason');
+      if (errEl) errEl.textContent = '';
+      reasonEl?.classList.remove('field-invalid');
+      document.getElementById('cancelForm')?.reset();
+      document.getElementById('cancelModal').showModal();
+    }
+    function closeCancelModal() {
+      document.getElementById('cancelModal').close();
+      const reasonEl = document.getElementById('cancelReason');
+      reasonEl?.classList.remove('field-invalid');
+      document.getElementById('cancelForm')?.reset();
+      document.getElementById('cancelErrorMessage').textContent = '';
+    }
+    async function handleCancelTicket(event) {
+      event.preventDefault();
+      if (!currentDetailTicket) return;
+      const reasonEl = document.getElementById('cancelReason');
+      const reason = reasonEl.value.trim();
+      const errEl = document.getElementById('cancelErrorMessage');
+      const btn = event.target.querySelector('button[type="submit"]');
+      errEl.textContent = '';
+      reasonEl.classList.remove('field-invalid');
+      if (!reason || reason.length < 5) {
+        errEl.textContent = 'Please give a reason (at least 5 characters).';
+        reasonEl.classList.add('field-invalid');
+        reasonEl.focus();
+        return;
+      }
+      btn.textContent = 'Cancelling...'; btn.disabled = true;
+      try {
+        await apiFetch(`/incidents/${currentDetailTicket.ticket_number}/cancel`, {
+          method: 'PATCH', body: JSON.stringify({ reason })
+        });
+        closeCancelModal();
+        await handleSearch({ preventDefault: ()=>{} });
+        await loadTrackTable();
+      } catch (err) {
+        errEl.textContent = err.message || 'Failed to cancel ticket.';
+      } finally {
+        btn.textContent = 'Confirm Cancel'; btn.disabled = false;
+      }
+    }
+
     // Auto-search if ticket param in URL
 const urlParams = new URLSearchParams(window.location.search);
 const ticketParam = urlParams.get('ticket');
