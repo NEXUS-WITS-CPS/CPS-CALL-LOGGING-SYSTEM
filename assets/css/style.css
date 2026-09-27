@@ -1300,15 +1300,40 @@ body {
 @media (max-width: 640px) {
   .main-content { padding: 14px; }
 
-  .stats-grid,
   .reports-grid,
-  .ticket-info-grid,
-  .report-modal-stats,
   .form-row,
   .filter-card .form-row {
     grid-template-columns: 1fr;
   }
   .form-group.full-width { grid-column: auto; }
+
+  /* Stat tiles and the ticket-info fields read fine as short 2-up
+     tiles — stacking all 4 full-width just meant a lot of scrolling
+     to see one screen's worth of numbers. Keep 2 columns and shrink
+     the tiles themselves instead. */
+  .stats-grid,
+  .ticket-info-grid,
+  .report-modal-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .stats-grid { margin-bottom: 18px; }
+
+  .stat-card {
+    padding: 12px 14px;
+    border-left-width: 3px;
+  }
+  .stat-card h3 { font-size: 11px; }
+  .stat-number { font-size: 24px; margin: 4px 0 2px; }
+  .stat-label { font-size: 11px; }
+
+  /* Ticket detail view (Track Incident): the card's own padding and the
+     gap before the audit trail were desktop-sized, adding a lot of
+     scroll before you reached anything useful. */
+  .ticket-detail-card { padding: 16px; margin-bottom: 16px; }
+  .ticket-detail-header { margin-bottom: 14px; }
+  .ticket-info-grid { margin-bottom: 14px; padding-bottom: 14px; }
+  .ticket-info-item { gap: 2px; }
 
   .form-actions { flex-direction: column-reverse; }
   .form-actions button { width: 100%; }
