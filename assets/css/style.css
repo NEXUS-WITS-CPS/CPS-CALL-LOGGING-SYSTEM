@@ -502,6 +502,16 @@ body {
   border-color: #003B5C;
 }
 
+/* Invalid field state — used by JS validation (e.g. Resolve Incident form)
+   so a failed submit is visible on the field itself, not just in a text
+   message that's easy to miss. */
+.form-group input.field-invalid,
+.form-group textarea.field-invalid,
+.form-group select.field-invalid {
+  border-color: #e74c3c;
+  background-color: #fdf2f1;
+}
+
 /* Select Dropdowns */
 .form-group select {
   width: 100%;

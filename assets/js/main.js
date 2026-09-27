@@ -562,20 +562,46 @@ function openResolveModal(tn, desc, pri, asgn) {
   document.getElementById('resolveAssignedTo').textContent   = asgn;
   document.getElementById('resolveForm')?.reset();
   document.getElementById('resolveErrorMessage').textContent = '';
+  document.getElementById('resolveForm')?.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
   document.getElementById('resolveModal').showModal();
 }
-function closeResolveModal() { document.getElementById('resolveModal').close(); document.getElementById('resolveForm')?.reset(); document.getElementById('resolveErrorMessage').textContent=''; }
+function closeResolveModal() {
+  document.getElementById('resolveModal').close();
+  const form = document.getElementById('resolveForm');
+  form?.reset();
+  form?.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+  document.getElementById('resolveErrorMessage').textContent='';
+}
 async function handleResolveIncident(event) {
   event.preventDefault();
-  const notes=document.getElementById('resolutionNotes').value.trim();
-  const time=document.getElementById('timeSpent').value;
+  const notesEl=document.getElementById('resolutionNotes');
+  const timeEl=document.getElementById('timeSpent');
+  const notes=notesEl.value.trim();
+  const time=timeEl.value;
   const intNote=document.getElementById('internalNotes')?.value.trim();
   const errEl=document.getElementById('resolveErrorMessage');
   const successEl=getSuccessEl();
   const btn=event.target.querySelector('button[type="submit"]');
   errEl.textContent='';
-  if (!notes||notes.length<20) { errEl.textContent='Resolution notes must be at least 20 characters.'; return; }
-  if (!time) { errEl.textContent='Please select time spent.'; return; }
+  // Clear any invalid-field styling from a previous attempt before re-checking.
+  notesEl.classList.remove('field-invalid');
+  timeEl.classList.remove('field-invalid');
+
+  // Collect every problem (not just the first) so the field-level highlighting
+  // and the message agree on what's wrong, and highlight each bad field
+  // instead of relying on a single line of red text below the button, which
+  // is easy to miss — this previously made a failed submit look like nothing
+  // happened.
+  const problems=[];
+  if (!notes||notes.length<20) { problems.push('Resolution notes must be at least 20 characters.'); notesEl.classList.add('field-invalid'); }
+  if (!time) { problems.push('Please select time spent.'); timeEl.classList.add('field-invalid'); }
+  if (problems.length) {
+    errEl.textContent=problems.join(' ');
+    const firstInvalid=event.target.querySelector('.field-invalid');
+    firstInvalid?.focus();
+    firstInvalid?.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
   btn.textContent='Submitting...'; btn.disabled=true;
   try {
     const data=await apiFetch(`/incidents/${currentResolveTicket}/resolve`, { method:'PATCH', body:JSON.stringify({ resolutionNotes:notes, internalNotes:intNote, timeSpent:time }) });
