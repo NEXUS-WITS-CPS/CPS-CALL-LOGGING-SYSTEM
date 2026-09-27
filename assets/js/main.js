@@ -369,20 +369,54 @@ async function loadLookups() {
   }
 }
 
+// Mirrors the backend's own checks in POST /api/incidents (backend/routes/incidents.js)
+// so a bad value is caught here, on the field, instead of only after a round trip
+// to the server — same fix as handleResolveIncident's validation.
+const CALLER_CONTACT_PATTERN = /^[0-9+()\s-]{7,20}$/;
+function validateLogIncidentField(id, value) {
+  switch (id) {
+    case 'callerName':    return value ? null : 'Caller name is required.';
+    case 'callerContact':
+      if (!value) return 'Contact number is required.';
+      return CALLER_CONTACT_PATTERN.test(value) ? null : 'Contact number may only contain digits, spaces, + ( ) and -, and must be 7–20 characters.';
+    case 'category':      return value ? null : 'Please select a category.';
+    case 'location':      return value ? null : 'Please select a location.';
+    case 'priority':      return value ? null : 'Please select a priority.';
+    case 'description':   return value && value.length >= 10 ? null : 'Description must be at least 10 characters.';
+    default: return null;
+  }
+}
+
 async function handleLogIncident(event) {
   event.preventDefault();
-  const callerName    = document.getElementById('callerName')?.value.trim();
-  const callerContact = document.getElementById('callerContact')?.value.trim();
-  const categoryId    = document.getElementById('category')?.value;
-  const locationId    = document.getElementById('location')?.value;
-  const priority      = document.getElementById('priority')?.value;
-  const description   = document.getElementById('description')?.value.trim();
+  const fieldIds = ['callerName','callerContact','category','location','priority','description'];
+  const fields = {};
+  fieldIds.forEach(id => { fields[id] = document.getElementById(id); fields[id]?.classList.remove('field-invalid'); });
+  const callerName    = fields.callerName?.value.trim();
+  const callerContact = fields.callerContact?.value.trim();
+  const categoryId    = fields.category?.value;
+  const locationId    = fields.location?.value;
+  const priority      = fields.priority?.value;
+  const description   = fields.description?.value.trim();
   const notes         = document.getElementById('notes')?.value.trim();
   const errEl         = document.getElementById('errorMessage');
   const successEl     = getSuccessEl();
   const btn           = event.target.querySelector('button[type="submit"]');
   errEl.textContent = ''; successEl.style.display = 'none';
-  if (!callerName||!callerContact||!categoryId||!locationId||!priority||!description) { errEl.textContent='Please complete all required fields.'; return; }
+
+  const values = { callerName, callerContact, category:categoryId, location:locationId, priority, description };
+  const problems = [];
+  for (const id of fieldIds) {
+    const msg = validateLogIncidentField(id, values[id]);
+    if (msg) { problems.push(msg); fields[id]?.classList.add('field-invalid'); }
+  }
+  if (problems.length) {
+    errEl.textContent = problems.join(' ');
+    const firstInvalid = event.target.querySelector('.field-invalid');
+    firstInvalid?.focus();
+    firstInvalid?.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
   btn.textContent='Submitting...'; btn.disabled=true;
   try {
     const data = await apiFetch('/incidents', { method:'POST', body:JSON.stringify({ callerName, callerContact, categoryId, locationId, priority, description, additionalNotes:notes }) });
@@ -390,7 +424,9 @@ async function handleLogIncident(event) {
     if (ticketEl) ticketEl.textContent = data.ticketNumber;
     successEl.textContent=`Incident successfully logged! Ticket Number: ${data.ticketNumber}`;
     successEl.style.display='block';
-    document.getElementById('incidentForm').reset();
+    const form = document.getElementById('incidentForm');
+    form.reset();
+    form.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
     window.onload();
     setTimeout(()=>{ successEl.style.display='none'; }, 5000);
   } catch(err) { errEl.textContent=err.message||'Failed to log incident. Please try again.'; }
@@ -398,7 +434,9 @@ async function handleLogIncident(event) {
 }
 
 function resetForm() {
-  document.getElementById('incidentForm')?.reset();
+  const form = document.getElementById('incidentForm');
+  form?.reset();
+  form?.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
   const e=document.getElementById('errorMessage'); if(e) e.textContent='';
   const s=getSuccessEl(); if(s) s.style.display='none';
   window.onload();
