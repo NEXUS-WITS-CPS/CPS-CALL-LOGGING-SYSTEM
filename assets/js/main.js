@@ -361,10 +361,8 @@ function renderTable(incidents, role) {
     let action = `<a href="track-incident.html?ticket=${i.ticket_number}" class="btn-assign">View</a>`;
 if (i.status === 'open' && role==='admin') {
   action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
-} else if (i.status === 'open' && role==='officer') {
-  action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
 } else if (['in_progress','escalated'].includes(i.status) && role==='technician') {
-  action = `<button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)})">Resolve</button>`;
+  action = `<button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>`;
 } else if (i.status === 'pending_confirmation' && role==='officer' && i.logged_by === (getUser()||{}).userId) {
   action = `
     <div style="display:flex;gap:6px;">
@@ -607,13 +605,19 @@ async function loadActiveTickets() {
       <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
       <td>${formatDate(i.date_logged)}</td>
       <td><span class="badge inprogress">In Progress</span></td>
-      <td><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')})">Resolve</button></td>
+      <td><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button></td>
     </tr>`).join('');
   } catch(e) { console.error('Active tickets:', e); }
 }
 
 let currentResolveTicket='';
-function openResolveModal(tn, desc, pri, asgn) {
+let resolveTimeSpentInterval=null;
+function formatElapsed(mins) {
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins/60), m = mins%60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+function openResolveModal(tn, desc, pri, asgn, dateAssigned) {
   currentResolveTicket = tn;
 
   // Create modal if it doesn't exist on this page
@@ -639,28 +643,12 @@ function openResolveModal(tn, desc, pri, asgn) {
             <textarea id="resolutionNotes" rows="4" placeholder="Describe what was done to resolve this incident (min 20 characters)..."></textarea>
           </div>
           <div class="form-group">
-            <label for="timeSpent">Time Spent <span class="required">*</span></label>
-            <select id="timeSpent">
-              <option value="" disabled selected>Select time spent</option>
-              <option value="15">15 minutes</option>
-              <option value="30">30 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="90">1.5 hours</option>
-              <option value="120">2 hours</option>
-              <option value="180">3 hours</option>
-              <option value="240">4+ hours</option>
-            </select>
+            <label>Time Spent</label>
+            <p id="timeSpentDisplay" style="font-weight:600;margin:4px 0 0;color:#334155;">—</p>
           </div>
           <div class="form-group">
             <label for="internalNotes">Internal Notes (Optional)</label>
             <textarea id="internalNotes" rows="2" placeholder="Any internal notes..."></textarea>
-          </div>
-          <div class="form-group">
-            <label for="resolveStatus">Resolution Status</label>
-            <select id="resolveStatus">
-              <option value="resolved">Resolved</option>
-            </select>
           </div>
           <p id="resolveErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
           <section class="form-actions">
@@ -679,10 +667,25 @@ function openResolveModal(tn, desc, pri, asgn) {
   document.getElementById('resolveForm')?.reset();
   document.getElementById('resolveErrorMessage').textContent = '';
   document.getElementById('resolveForm')?.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
+
+  // Time spent is computed automatically from assignment time — display only, live-updating.
+  if (resolveTimeSpentInterval) clearInterval(resolveTimeSpentInterval);
+  const assignedMs = dateAssigned ? new Date(dateAssigned).getTime() : null;
+  const updateTimeSpent = () => {
+    const el = document.getElementById('timeSpentDisplay');
+    if (!el) return;
+    if (!assignedMs) { el.textContent = 'Unavailable'; return; }
+    const mins = Math.max(1, Math.round((Date.now() - assignedMs) / 60000));
+    el.textContent = formatElapsed(mins);
+  };
+  updateTimeSpent();
+  resolveTimeSpentInterval = setInterval(updateTimeSpent, 30000);
+
   document.getElementById('resolveModal').showModal();
 }
 function closeResolveModal() {
   document.getElementById('resolveModal').close();
+  if (resolveTimeSpentInterval) { clearInterval(resolveTimeSpentInterval); resolveTimeSpentInterval=null; }
   const form = document.getElementById('resolveForm');
   form?.reset();
   form?.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
@@ -691,9 +694,7 @@ function closeResolveModal() {
 async function handleResolveIncident(event) {
   event.preventDefault();
   const notesEl=document.getElementById('resolutionNotes');
-  const timeEl=document.getElementById('timeSpent');
   const notes=notesEl.value.trim();
-  const time=timeEl.value;
   const intNote=document.getElementById('internalNotes')?.value.trim();
   const errEl=document.getElementById('resolveErrorMessage');
   const successEl=getSuccessEl();
@@ -701,7 +702,6 @@ async function handleResolveIncident(event) {
   errEl.textContent='';
   // Clear any invalid-field styling from a previous attempt before re-checking.
   notesEl.classList.remove('field-invalid');
-  timeEl.classList.remove('field-invalid');
 
   // Collect every problem (not just the first) so the field-level highlighting
   // and the message agree on what's wrong, and highlight each bad field
@@ -710,7 +710,6 @@ async function handleResolveIncident(event) {
   // happened.
   const problems=[];
   if (!notes||notes.length<20) { problems.push('Resolution notes must be at least 20 characters.'); notesEl.classList.add('field-invalid'); }
-  if (!time) { problems.push('Please select time spent.'); timeEl.classList.add('field-invalid'); }
   if (problems.length) {
     errEl.textContent=problems.join(' ');
     const firstInvalid=event.target.querySelector('.field-invalid');
@@ -720,7 +719,7 @@ async function handleResolveIncident(event) {
   }
   btn.textContent='Submitting...'; btn.disabled=true;
   try {
-    const data=await apiFetch(`/incidents/${currentResolveTicket}/resolve`, { method:'PATCH', body:JSON.stringify({ resolutionNotes:notes, internalNotes:intNote, timeSpent:time }) });
+    const data=await apiFetch(`/incidents/${currentResolveTicket}/resolve`, { method:'PATCH', body:JSON.stringify({ resolutionNotes:notes, internalNotes:intNote }) });
     closeResolveModal();
     successEl.textContent=`Ticket ${currentResolveTicket} resolved successfully! Awaiting confirmation.`;
     successEl.style.display='block';

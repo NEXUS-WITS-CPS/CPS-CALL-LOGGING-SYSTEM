@@ -106,16 +106,6 @@
 
       <form id="resolveForm" onsubmit="handleResolveIncident(event)">
 
-        <!-- Update Status -->
-        <div class="form-group">
-          <label for="resolveStatus">
-            Update Status <span class="required">*</span>
-          </label>
-          <select id="resolveStatus" name="resolveStatus" required>
-            <option value="resolved" selected>Resolved (awaiting confirmation)</option>
-          </select>
-        </div>
-
         <!-- Resolution Notes -->
         <div class="form-group">
           <label for="resolutionNotes">
@@ -133,22 +123,13 @@
           </small>
         </div>
 
-        <!-- Work Log -->
+        <!-- Work Log (automatic) -->
         <div class="form-group">
-          <label for="timeSpent">
-            Time Spent <span class="required">*</span>
-          </label>
-          <select id="timeSpent" name="timeSpent" required>
-            <option value="" disabled selected>Select time spent</option>
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="90">1.5 hours</option>
-            <option value="120">2 hours</option>
-            <option value="180">3 hours</option>
-            <option value="240">4+ hours</option>
-          </select>
+          <label>Time Spent</label>
+          <p id="timeSpentDisplay" style="font-weight:600;margin:4px 0 0;color:#334155;">—</p>
+          <small class="field-hint">
+            Calculated automatically from when the ticket was assigned to you
+          </small>
         </div>
 
         <!-- Internal Notes -->

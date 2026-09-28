@@ -51,7 +51,7 @@ async function writeAudit(incidentId, userId, action, oldVal, newVal) {
 async function loadIncident(ticketNumber) {
   const { data } = await supabase
     .from('incidents')
-    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline')
+    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline, date_assigned')
     .eq('ticket_number', String(ticketNumber).toUpperCase())
     .single();
   return data || null;
@@ -156,7 +156,7 @@ router.get('/', async (req, res) => {
       .from('incidents')
       .select(`
         incident_id, ticket_number, priority, status,
-        description, caller_name, caller_contact,
+        description, caller_name, caller_contact, logged_by,
         date_logged, date_assigned, date_resolved, date_closed,
         sla_deadline, sla_breached, assigned_to,
         categories(category_name),
@@ -281,7 +281,7 @@ router.get('/:ticketNumber', async (req, res) => {
 // UC4 — ASSIGN INCIDENT  (admin, officer)
 // Allowed from: open, in_progress (re-assign), escalated (re-assign)
 // =====================================================
-router.patch('/:ticketNumber/assign', requireRole('admin', 'officer'), async (req, res) => {
+router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => {
   try {
     const { assignTo, priority, assignmentNotes } = req.body;
     if (!assignTo) return res.status(400).json({ error: 'Please select an officer.' });
@@ -327,9 +327,8 @@ router.patch('/:ticketNumber/assign', requireRole('admin', 'officer'), async (re
 // =====================================================
 router.patch('/:ticketNumber/resolve', requireRole('admin', 'technician', 'officer'), async (req, res) => {
   try {
-    const { resolutionNotes, internalNotes, timeSpent, rootCause } = req.body;
+    const { resolutionNotes, internalNotes, rootCause } = req.body;
     if (!resolutionNotes || resolutionNotes.trim().length < 20) return res.status(400).json({ error: 'Resolution notes must be at least 20 characters.' });
-    if (!timeSpent || !Number.isInteger(parseInt(timeSpent))) return res.status(400).json({ error: 'Please select time spent.' });
 
     const incident = await loadIncident(req.params.ticketNumber);
     if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
@@ -337,18 +336,23 @@ router.patch('/:ticketNumber/resolve', requireRole('admin', 'technician', 'offic
     const allowed = ['in_progress', 'escalated'];
     if (!allowed.includes(incident.status)) return wrongStatus(res, incident, allowed, 'resolve');
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    // Time spent is computed automatically — assigned -> resolved — never trusted from the client.
+    const assignedAt = incident.date_assigned ? new Date(incident.date_assigned) : now;
+    const timeSpentMins = Math.max(1, Math.round((now - assignedAt) / 60000));
+
     const { error: noteErr } = await supabase.from('resolution_notes').insert({
       incident_id: incident.incident_id, technician_id: req.user.userId,
       resolution_notes: resolutionNotes.trim(), internal_notes: internalNotes || null,
-      time_spent_mins: parseInt(timeSpent), root_cause: rootCause || null,
-      resolution_status: 'resolved', resolved_at: now
+      time_spent_mins: timeSpentMins, root_cause: rootCause || null,
+      resolution_status: 'resolved', resolved_at: nowIso
     });
     if (noteErr) throw noteErr;
 
     const { data: updated, error } = await supabase
       .from('incidents')
-      .update({ status: 'pending_confirmation', date_resolved: now, time_spent_mins: parseInt(timeSpent), root_cause: rootCause || null })
+      .update({ status: 'pending_confirmation', date_resolved: nowIso, time_spent_mins: timeSpentMins, root_cause: rootCause || null })
       .eq('ticket_number', incident.ticket_number).select().single();
     if (error) throw error;
 

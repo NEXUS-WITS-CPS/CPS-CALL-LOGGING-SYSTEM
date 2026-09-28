@@ -33,7 +33,8 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  check('admin notified of new ticket',T.notifications.some(n=>n.recipient_id===1&&n.notification_type==='ticket_logged'));
  r=await call('PATCH',`/incidents/${t1}/resolve`,TE,{resolutionNotes:'Fixed the gate motor and reset',timeSpent:'30'}); check('cannot resolve an open ticket (409/403)',[403,409].includes(r.s),r.s);
  r=await call('PATCH',`/incidents/${t1}/assign`,TE,{assignTo:3}); check('technician cannot assign (403)',r.s===403);
- r=await call('PATCH',`/incidents/${t1}/assign`,O,{assignTo:1}); check('cannot assign to an admin (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${t1}/assign`,O,{assignTo:3}); check('officer cannot assign (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${t1}/assign`,A,{assignTo:1}); check('cannot assign to an admin (400)',r.s===400);
  r=await call('PATCH',`/incidents/${t1}/assign`,A,{assignTo:3,assignmentNotes:'Urgent'}); check('admin assigns to technician',r.s===200&&T.incidents[0].status==='in_progress');
  check('assignee notified',T.notifications.some(n=>n.recipient_id===3&&n.notification_type==='ticket_assigned'));
  check('audit notes stored',T.audit_trail.some(a=>a.action_description.includes('Notes: Urgent')));
