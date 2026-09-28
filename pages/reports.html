@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Wits CPS | Reports</title>
   <link rel="stylesheet" href="../assets/css/style.css" />
+  <style>
+    /* ── Analytics charts (scoped to this page) ── */
+    .chart-card{background:#fff;border:1px solid #e1e0d9;border-radius:8px;padding:18px 20px;margin-bottom:16px;}
+    .chart-card h3{margin:0 0 2px;font-size:1rem;color:#003B5C;}
+    .chart-card .chart-sub{margin:0 0 14px;font-size:0.82rem;color:#52514e;}
+    .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:8px;}
+    .hbar-row{display:grid;grid-template-columns:120px 1fr 64px;align-items:center;gap:10px;margin:9px 0;}
+    .hbar-label{font-size:0.82rem;color:#0b0b0b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .hbar-track{background:#f2f1ee;border-radius:4px;height:14px;position:relative;overflow:hidden;}
+    .hbar-fill{display:block;height:100%;border-radius:4px;min-width:3px;transition:width .3s ease;}
+    .hbar-value{font-size:0.8rem;color:#52514e;text-align:right;font-variant-numeric:tabular-nums;}
+    .chart-empty{color:#898781;font-size:0.85rem;padding:10px 0;}
+    .chart-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin:0 0 10px;font-size:0.78rem;color:#52514e;}
+    .chart-legend span{display:inline-flex;align-items:center;gap:5px;}
+    .chart-legend i{width:10px;height:10px;border-radius:2px;display:inline-block;}
+  </style>
 </head>
 <body class="dashboard-page">
 
@@ -135,6 +151,14 @@
         </article>
       </section>
 
+      <!-- Analytics Charts (per-report visual summary, populated by generateReport) -->
+      <section class="table-section" id="reportCharts" style="display:none;">
+        <header class="table-header">
+          <h2 id="reportChartsTitle">Chart Summary</h2>
+        </header>
+        <div id="reportChartsContainer" class="chart-grid"></div>
+      </section>
+
       <!-- Report Results Table -->
       <section class="table-section" id="reportResults" style="display:none;">
         <header class="table-header">
@@ -245,6 +269,118 @@
       return `<p style="margin:0 0 12px;"><strong>${label}:</strong> ${parts || '—'}</p>`;
     }
 
+    // ── ANALYTICS CHARTS ──────────────────────────────────────────
+    // Colors reuse the app's own status/priority badge palette (see style.css)
+    // so a bar means the same thing here as it does everywhere else in the UI.
+    const PRIORITY_COLOR = { critical:'#c0392b', high:'#d35400', medium:'#b7950b', low:'#1e8449' };
+    const STATUS_COLOR = { open:'#c0392b', in_progress:'#d35400', escalated:'#6c3483', pending_confirmation:'#1a5276', resolved:'#1e8449', closed:'#37474f', cancelled:'#757575' };
+    // Validated categorical palette (dataviz skill, fixed order — never reassigned per filter)
+    const CATEGORICAL = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948'];
+    const SEQUENTIAL_BLUE = '#2a78d6';
+    function slaColor(pct) { return pct >= 90 ? '#1e8449' : pct >= 70 ? '#d35400' : '#c0392b'; }
+
+    function buildQuery() {
+      const f = document.getElementById('dateFrom').value, t = document.getElementById('dateTo').value;
+      const p = document.getElementById('reportPriority').value, s = document.getElementById('reportStatus').value;
+      const params = new URLSearchParams();
+      if (f) params.set('dateFrom', f);
+      if (t) params.set('dateTo', t);
+      if (p !== 'all') params.set('priority', p);
+      if (s !== 'all') params.set('status', s);
+      const qs = params.toString();
+      return qs ? `?${qs}` : '';
+    }
+
+    // Renders one labeled horizontal-bar panel into `container`.
+    // items: [{label, value, color}], unit appended after the value (e.g. 'h', '%', or '' for counts)
+    function renderHBarPanel(container, title, sub, items, unit) {
+      const card = document.createElement('article');
+      card.className = 'chart-card';
+      const max = Math.max(1, ...items.map(i => i.value));
+      card.innerHTML = `<h3>${esc(title)}</h3>${sub ? `<p class="chart-sub">${esc(sub)}</p>` : ''}` +
+        (items.length ? items.map(i => `
+          <div class="hbar-row" title="${esc(i.label)}: ${esc(String(i.value))}${esc(unit||'')}">
+            <span class="hbar-label">${esc(i.label)}</span>
+            <span class="hbar-track"><span class="hbar-fill" style="width:${Math.max(2, (i.value/max)*100)}%;background:${i.color}"></span></span>
+            <span class="hbar-value">${esc(String(i.value))}${esc(unit||'')}</span>
+          </div>`).join('') : '<p class="chart-empty">No data for this period.</p>');
+      container.appendChild(card);
+    }
+
+    function topNPlusOther(entries, n) {
+      // entries: [[label, count], ...] sorted desc. Folds the tail into "Other" (dataviz: cap categorical series).
+      if (entries.length <= n) return entries;
+      const head = entries.slice(0, n);
+      const otherTotal = entries.slice(n).reduce((s,[,v]) => s+v, 0);
+      return otherTotal > 0 ? [...head, ['Other', otherTotal]] : head;
+    }
+
+    async function renderChartsFor(type) {
+      const section = document.getElementById('reportCharts');
+      const container = document.getElementById('reportChartsContainer');
+      const title = document.getElementById('reportChartsTitle');
+      container.innerHTML = '';
+      section.style.display = 'block';
+      const qs = buildQuery();
+
+      try {
+        if (type === 'resolution') {
+          title.textContent = 'Chart Summary — Resolution Time';
+          const r = await apiFetch(`/reports/resolution-time${qs}`);
+          const order = ['critical','high','medium','low'];
+          const bySummary = order.map(p => r.summary.find(s => s.priority === p)).filter(Boolean);
+          renderHBarPanel(container, 'Avg. Resolution Time by Priority', 'Hours from logged to resolved',
+            bySummary.map(s => ({ label: s.priority, value: s.avgResolutionHours, color: SEQUENTIAL_BLUE })), 'h');
+          renderHBarPanel(container, 'SLA Compliance by Priority', '% resolved within the SLA deadline',
+            bySummary.map(s => ({ label: s.priority, value: s.slaCompliancePct, color: slaColor(s.slaCompliancePct) })), '%');
+
+        } else if (type === 'volume') {
+          title.textContent = 'Chart Summary — Call Volume';
+          const r = await apiFetch(`/reports/call-volume${qs}`);
+          const catEntries = topNPlusOther(r.byCategory.map(c => [c.category, c.count]), 6);
+          renderHBarPanel(container, 'Calls by Category', `${r.kpis.total} total incidents`,
+            catEntries.map(([label,value],idx) => ({ label, value, color: CATEGORICAL[idx % CATEGORICAL.length] })), '');
+          renderHBarPanel(container, 'Calls by Location', 'Top locations by call count',
+            r.byLocation.map((l,idx) => ({ label: l.location, value: l.count, color: CATEGORICAL[idx % CATEGORICAL.length] })), '');
+
+        } else if (type === 'priority') {
+          title.textContent = 'Chart Summary — Priority Analysis';
+          const r = await apiFetch(`/reports/priority-analysis${qs}`);
+          renderHBarPanel(container, 'Incidents by Priority', `${r.kpis.total} total · ${r.kpis.slaBreachedTotal} SLA breaches`,
+            r.byPriority.map(p => ({ label: p.priority, value: p.count, color: PRIORITY_COLOR[p.priority] })), '');
+          renderHBarPanel(container, 'Hotspot Locations', 'Locations with the most incidents',
+            r.byLocation.map((l,idx) => ({ label: l.location, value: l.count, color: CATEGORICAL[idx % CATEGORICAL.length] })), '');
+
+        } else if (type === 'history') {
+          title.textContent = 'Chart Summary — Incident History';
+          const r = await apiFetch(`/reports/incident-history${qs}`);
+          const sc = r.statusCounts;
+          const items = [
+            { label:'open', value: sc.open, color: STATUS_COLOR.open },
+            { label:'in_progress', value: sc.inProgress, color: STATUS_COLOR.in_progress },
+            { label:'escalated', value: sc.escalated, color: STATUS_COLOR.escalated },
+            { label:'resolved', value: sc.resolved, color: STATUS_COLOR.resolved },
+            { label:'closed', value: sc.closed, color: STATUS_COLOR.closed },
+            { label:'cancelled', value: sc.cancelled, color: STATUS_COLOR.cancelled },
+          ];
+          renderHBarPanel(container, 'Incidents by Status', `${sc.total} total incidents in this period`, items, '');
+
+        } else if (type === 'performance') {
+          title.textContent = 'Chart Summary — Technician Performance';
+          const r = await apiFetch(`/reports/technician-performance${qs}`);
+          const ranked = [...r.performance].sort((a,b) => b.totalResolved - a.totalResolved);
+          renderHBarPanel(container, 'Tickets Resolved by Technician', 'Sorted highest to lowest',
+            ranked.map(t => ({ label: t.fullName.split(' ')[0], value: t.totalResolved, color: SEQUENTIAL_BLUE })), '');
+          const withTime = ranked.filter(t => t.avgResolutionHrs);
+          renderHBarPanel(container, 'Avg. Resolution Time by Technician', 'Hours per ticket (lower is faster)',
+            withTime.map(t => ({ label: t.fullName.split(' ')[0], value: t.avgResolutionHrs, color: SEQUENTIAL_BLUE })), 'h');
+        }
+      } catch (e) {
+        console.error('Chart load:', e);
+        container.innerHTML = '<p class="chart-empty">Could not load chart data.</p>';
+      }
+    }
+
     function generateReport(type) {
       const results = document.getElementById('reportResults');
       const container = document.getElementById('reportTableContainer');
@@ -252,6 +388,7 @@
       results.style.display = 'block';
       window._lastReport = type;
       document.getElementById('reportPeriod').textContent = periodLabel();
+      renderChartsFor(type);
 
       const inc = getFilteredIncidents();
 
