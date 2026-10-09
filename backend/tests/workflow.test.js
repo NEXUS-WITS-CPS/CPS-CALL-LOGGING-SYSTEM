@@ -73,6 +73,27 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:3,assignmentNotes:'Same person again'}); check('re-assign to current assignee rejected (400)',r.s===400);
  r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:5,assignmentNotes:'Original technician unavailable'}); check('escalated ticket can be re-assigned',r.s===200&&inc2.status==='in_progress'&&inc2.assigned_to===5);
  check('re-assignment increments reassign_count',inc2.reassign_count>=1,String(inc2.reassign_count));
+ // SLA pause / resume
+ r=await call('POST','/incidents',O,{...good,priority:'high'}); const tp=r.j.ticketNumber; const incP=T.incidents.find(i=>i.ticket_number===tp);
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,TE,{reason:'third_party',notes:'Waiting for the contractor'}); check('cannot pause an unassigned (open) ticket (409/403)',[403,409].includes(r.s),r.s);
+ await call('PATCH',`/incidents/${tp}/assign`,A,{assignTo:3});
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,T5,{reason:'third_party',notes:'Waiting for the contractor'}); check('other technician cannot pause (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,O,{reason:'third_party',notes:'Waiting for the contractor'}); check('officer cannot pause (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,TE,{reason:'bogus',notes:'Waiting for the contractor'}); check('pause needs a valid reason (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,TE,{reason:'third_party',notes:'x'}); check('pause needs an explanation (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${tp}/sla-resume`,TE,{}); check('cannot resume a ticket that is not paused (409)',r.s===409);
+ const deadlineBefore=incP.sla_deadline;
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,TE,{reason:'awaiting_parts',notes:'Waiting for a new reader to be delivered'}); check('assigned technician pauses SLA',r.s===200&&!!incP.sla_paused_at);
+ check('pause is audited with the reason',T.audit_trail.some(a=>a.action_description.startsWith('SLA Paused')&&a.action_description.includes('reader')));
+ r=await call('PATCH',`/incidents/${tp}/sla-pause`,TE,{reason:'awaiting_parts',notes:'Waiting for a new reader to be delivered'}); check('cannot pause twice (409)',r.s===409);
+ incP.sla_deadline=new Date(Date.now()-3600*1000).toISOString(); incP.sla_paused_at=new Date(Date.now()-2*3600*1000).toISOString();   // deadline passed 1h ago, but paused for 2h
+ await require('../lib/sla').runSlaCheck(true);
+ check('paused ticket is NOT auto-escalated',incP.status==='in_progress'&&incP.sla_breached===false);
+ r=await call('GET','/incidents',A); check('list reports paused SLA status',r.j.incidents.find(i=>i.ticket_number===tp).slaStatus==='paused');
+ const dl0=new Date(incP.sla_deadline).getTime();
+ r=await call('PATCH',`/incidents/${tp}/sla-resume`,TE,{}); check('technician resumes SLA',r.s===200&&incP.sla_paused_at===null);
+ check('resume extends the deadline by the paused time',new Date(incP.sla_deadline).getTime()-dl0>=2*3600*1000-5000&&incP.sla_paused_total_mins>=119,String(incP.sla_paused_total_mins));
+ check('resume is audited',T.audit_trail.some(a=>a.action_description.startsWith('SLA Resumed')));
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();

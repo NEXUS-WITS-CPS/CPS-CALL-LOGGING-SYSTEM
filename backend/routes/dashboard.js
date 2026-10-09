@@ -4,7 +4,7 @@
 const express  = require('express');
 const supabase = require('../supabaseClient');
 const { authMiddleware } = require('../middleware/auth');
-const { runSlaCheck } = require('../lib/sla');
+const { runSlaCheck, effectiveDeadline } = require('../lib/sla');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -61,10 +61,11 @@ router.get('/summary', async (req, res) => {
     let alertQuery = supabase
       .from('incidents')
       .select(`
-        ticket_number, priority, status, sla_deadline, sla_breached,
+        ticket_number, priority, status, sla_deadline, sla_breached, sla_paused_at,
         description, categories(category_name)
       `)
       .in('status', ['open','in_progress'])
+      .is('sla_paused_at', null)          // paused clocks are not at risk
       .order('sla_deadline', { ascending: true })
       .limit(5);
 
@@ -118,7 +119,7 @@ router.get('/recent', async (req, res) => {
       .from('incidents')
       .select(`
         incident_id, ticket_number, priority, status, logged_by, assigned_to, reassign_count,
-        description, caller_name, date_logged, sla_deadline, sla_breached,
+        description, caller_name, date_logged, sla_deadline, sla_breached, sla_paused_at,
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(full_name)
@@ -138,7 +139,7 @@ router.get('/recent', async (req, res) => {
     // Add SLA status to each
     const now = new Date();
     const withSLA = (data || []).map(i => {
-      const deadline  = new Date(i.sla_deadline);
+      const deadline  = effectiveDeadline(i, now);
       const minsLeft  = Math.round((deadline - now) / 60000);
       const slaLimits = { critical:120, high:240, medium:480, low:1440 };
       const limit     = slaLimits[i.priority];
@@ -146,7 +147,7 @@ router.get('/recent', async (req, res) => {
       const pct       = Math.min(Math.round((elapsed / limit) * 100), 100);
       return {
         ...i,
-        slaStatus: i.sla_breached || minsLeft <= 0 ? 'breached'
+        slaStatus: i.sla_paused_at ? 'paused' : i.sla_breached || minsLeft <= 0 ? 'breached'
           : pct >= 75 ? 'approaching' : 'within'
       };
     });

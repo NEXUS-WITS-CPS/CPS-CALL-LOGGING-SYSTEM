@@ -7,7 +7,7 @@ const express  = require('express');
 const supabase = require('../supabaseClient');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { notify, activeUserIds } = require('../lib/notify');
-const { runSlaCheck } = require('../lib/sla');
+const { runSlaCheck, effectiveDeadline } = require('../lib/sla');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -51,7 +51,7 @@ async function writeAudit(incidentId, userId, action, oldVal, newVal) {
 async function loadIncident(ticketNumber) {
   const { data } = await supabase
     .from('incidents')
-    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline, date_assigned, reassign_count')
+    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline, date_assigned, reassign_count, sla_paused_at, sla_paused_total_mins')
     .eq('ticket_number', String(ticketNumber).toUpperCase())
     .single();
   return data || null;
@@ -158,7 +158,7 @@ router.get('/', async (req, res) => {
         incident_id, ticket_number, priority, status,
         description, caller_name, caller_contact, logged_by,
         date_logged, date_assigned, date_resolved, date_closed,
-        sla_deadline, sla_breached, assigned_to, reassign_count,
+        sla_deadline, sla_breached, assigned_to, reassign_count, sla_paused_at, sla_pause_reason,
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(user_id, full_name)
@@ -177,11 +177,11 @@ router.get('/', async (req, res) => {
 
     const now = new Date();
     const withSLA = (data || []).map(i => {
-      const deadline = new Date(i.sla_deadline);
+      const deadline = effectiveDeadline(i, now);
       const limitMins = (SLA_HOURS[i.priority] || 24) * 60;
       const minsLeft = Math.round((deadline - now) / 60000);
       const pct = Math.min(Math.round(((limitMins - minsLeft) / limitMins) * 100), 100);
-      return { ...i, slaStatus: i.sla_breached || minsLeft <= 0 ? 'breached' : pct >= 75 ? 'approaching' : 'within' };
+      return { ...i, slaStatus: i.sla_paused_at ? 'paused' : i.sla_breached || minsLeft <= 0 ? 'breached' : pct >= 75 ? 'approaching' : 'within' };
     });
 
     res.json({ incidents: withSLA, total: withSLA.length });
@@ -258,7 +258,7 @@ router.get('/:ticketNumber', async (req, res) => {
     const now = new Date();
     const limit = SLA_HOURS[incident.priority] || 24;
     const hoursOpen = (now - new Date(incident.date_logged)) / 3600000;
-    const slaStatus = incident.sla_breached || hoursOpen >= limit ? 'breached' : hoursOpen >= limit * 0.75 ? 'approaching' : 'within';
+    const slaStatus = incident.sla_paused_at ? 'paused' : incident.sla_breached || hoursOpen >= limit ? 'breached' : hoursOpen >= limit * 0.75 ? 'approaching' : 'within';
 
     // Accountability chain: who did what, and when, taken from the audit trail (latest event of each kind)
     const trail = auditTrail || [];
@@ -355,6 +355,77 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
 });
 
 // =====================================================
+// SLA PAUSE / RESUME  (assigned technician, or admin)
+// Stops the SLA clock while the ticket waits on something outside CPS
+// (parts, a contractor, building access). A reason is mandatory and audited.
+// =====================================================
+const PAUSE_REASONS = {
+  awaiting_parts: 'Awaiting spare parts',
+  third_party: 'Waiting on a third party / contractor',
+  awaiting_access: 'Awaiting access to the area',
+  awaiting_user: 'Awaiting the user / caller',
+  other: 'Other'
+};
+
+router.patch('/:ticketNumber/sla-pause', requireRole('admin', 'technician'), async (req, res) => {
+  try {
+    const { reason, notes } = req.body;
+    if (!PAUSE_REASONS[reason]) return res.status(400).json({ error: 'Please choose a reason for pausing the SLA.' });
+    if (!notes || notes.trim().length < 10) return res.status(400).json({ error: 'Please explain what the ticket is waiting for (min 10 characters).' });
+
+    const incident = await loadIncident(req.params.ticketNumber);
+    if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!isAssigneeOrAdmin(req.user, incident)) return res.status(403).json({ error: 'Only the technician assigned to this ticket (or an admin) can pause its SLA.' });
+    if (incident.status !== 'in_progress') return wrongStatus(res, incident, ['in_progress'], 'pause the SLA of');
+    if (incident.sla_paused_at) return res.status(409).json({ error: `The SLA for ${incident.ticket_number} is already paused.` });
+
+    const now = new Date().toISOString();
+    const reasonText = `${PAUSE_REASONS[reason]} — ${notes.trim()}`;
+    const { data: updated, error } = await supabase.from('incidents')
+      .update({ sla_paused_at: now, sla_pause_reason: reasonText })
+      .eq('ticket_number', incident.ticket_number).is('sla_paused_at', null).select().single();
+    if (error) throw error;
+
+    await writeAudit(incident.incident_id, req.user.userId,
+      `SLA Paused by ${req.user.fullName}. Reason: ${reasonText}`, 'sla: running', 'sla: paused');
+    const admins = await activeUserIds(['admin']);
+    await notify(incident.incident_id, admins, 'sla_paused',
+      `SLA for ticket ${incident.ticket_number} was paused by ${req.user.fullName}: ${reasonText}`);
+    res.json({ message: `SLA paused for ${incident.ticket_number}.`, incident: updated });
+  } catch (err) {
+    console.error('SLA pause error:', err);
+    res.status(500).json({ error: err.message || 'Failed to pause SLA.' });
+  }
+});
+
+router.patch('/:ticketNumber/sla-resume', requireRole('admin', 'technician'), async (req, res) => {
+  try {
+    const incident = await loadIncident(req.params.ticketNumber);
+    if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!isAssigneeOrAdmin(req.user, incident)) return res.status(403).json({ error: 'Only the technician assigned to this ticket (or an admin) can resume its SLA.' });
+    if (!incident.sla_paused_at) return res.status(409).json({ error: `The SLA for ${incident.ticket_number} is not paused.` });
+
+    const now = new Date();
+    const pausedMins = Math.max(0, Math.round((now - new Date(incident.sla_paused_at)) / 60000));
+    const { data: updated, error } = await supabase.from('incidents')
+      .update({
+        sla_deadline: effectiveDeadline(incident, now).toISOString(),   // deadline moves out by the paused time
+        sla_paused_at: null, sla_pause_reason: null,
+        sla_paused_total_mins: (incident.sla_paused_total_mins || 0) + pausedMins
+      })
+      .eq('ticket_number', incident.ticket_number).select().single();
+    if (error) throw error;
+
+    await writeAudit(incident.incident_id, req.user.userId,
+      `SLA Resumed by ${req.user.fullName} after ${pausedMins} min paused. Deadline extended accordingly.`, 'sla: paused', 'sla: running');
+    res.json({ message: `SLA resumed for ${incident.ticket_number}. Deadline extended by ${pausedMins} min.`, incident: updated });
+  } catch (err) {
+    console.error('SLA resume error:', err);
+    res.status(500).json({ error: err.message || 'Failed to resume SLA.' });
+  }
+});
+
+// =====================================================
 // UC5 — RESOLVE INCIDENT  (assigned technician/officer, or admin)
 // Allowed from: in_progress, escalated
 // =====================================================
@@ -385,7 +456,11 @@ router.patch('/:ticketNumber/resolve', requireRole('admin', 'technician', 'offic
 
     const { data: updated, error } = await supabase
       .from('incidents')
-      .update({ status: 'pending_confirmation', date_resolved: nowIso, time_spent_mins: timeSpentMins, root_cause: rootCause || null })
+      .update({ status: 'pending_confirmation', date_resolved: nowIso, time_spent_mins: timeSpentMins, root_cause: rootCause || null,
+                // resolving a paused ticket ends the pause (the clock is no longer relevant)
+                ...(incident.sla_paused_at ? { sla_paused_at: null, sla_pause_reason: null,
+                     sla_paused_total_mins: (incident.sla_paused_total_mins || 0) + Math.round((now - new Date(incident.sla_paused_at)) / 60000),
+                     sla_deadline: effectiveDeadline(incident, now).toISOString() } : {}) })
       .eq('ticket_number', incident.ticket_number).select().single();
     if (error) throw error;
 
@@ -422,7 +497,7 @@ router.patch('/:ticketNumber/escalate', requireRole('admin', 'technician', 'offi
 
     const now = new Date().toISOString();
     const newPriority = priorityUpdate || 'critical';
-    const breached = new Date(incident.sla_deadline) < new Date();
+    const breached = effectiveDeadline(incident) < new Date();
 
     const { error: escErr } = await supabase.from('escalations').insert({
       incident_id: incident.incident_id, escalated_by: req.user.userId,

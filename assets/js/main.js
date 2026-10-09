@@ -352,6 +352,68 @@ async function loadTechDashboard() {
   } catch(e) { console.error('Tech dashboard:', e); }
 }
 
+// ── SLA PAUSE / RESUME ──
+function slaButton(i) {
+  return i.sla_paused_at
+    ? `<button class="btn-assign" style="background:#dbeafe;color:#1e40af;" onclick="resumeSla(${q(i.ticket_number)})">▶ Resume SLA</button>`
+    : `<button class="btn-assign" style="background:#fef3c7;color:#92400e;" onclick="openPauseModal(${q(i.ticket_number)})">⏸ Pause SLA</button>`;
+}
+function pausedBadge(i) {
+  return i.sla_paused_at ? ` <span class="badge-paused" title="${esc(i.sla_pause_reason||'')}">SLA paused</span>` : '';
+}
+let pauseTicket = '';
+function openPauseModal(tn) {
+  pauseTicket = tn;
+  if (!document.getElementById('pauseModal')) {
+    const m = document.createElement('dialog'); m.id='pauseModal'; m.className='modal';
+    m.innerHTML = `<section class="modal-content">
+      <header class="modal-header"><h2>Pause SLA</h2><button class="modal-close" onclick="closePauseModal()">✕</button></header>
+      <section class="modal-ticket-info"><p><strong>Ticket:</strong> <span id="pauseTicketNumber"></span></p>
+        <p class="assign-warn" style="background:#fef3c7;color:#92400e;border-radius:6px;padding:6px 8px;">The SLA clock stops until you resume it. The deadline moves out by the time paused, and the pause is recorded in the audit trail.</p></section>
+      <form id="pauseForm" onsubmit="handlePauseSla(event)">
+        <div class="form-group"><label for="pauseReason">Reason <span class="required">*</span></label>
+          <select id="pauseReason"><option value="" disabled selected>Select a reason</option>
+            <option value="awaiting_parts">Awaiting spare parts</option>
+            <option value="third_party">Waiting on a third party / contractor</option>
+            <option value="awaiting_access">Awaiting access to the area</option>
+            <option value="awaiting_user">Awaiting the user / caller</option>
+            <option value="other">Other</option></select></div>
+        <div class="form-group"><label for="pauseNotes">What is the ticket waiting for? <span class="required">*</span></label>
+          <textarea id="pauseNotes" rows="3" placeholder="e.g. Replacement reader ordered from the supplier, due Monday."></textarea></div>
+        <p id="pauseErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
+        <section class="form-actions"><button type="button" class="btn-secondary" onclick="closePauseModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Pause SLA</button></section>
+      </form></section>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('pauseTicketNumber').textContent = tn;
+  document.getElementById('pauseModal').showModal();
+}
+function closePauseModal() { document.getElementById('pauseModal').close(); document.getElementById('pauseForm')?.reset(); document.getElementById('pauseErrorMessage').textContent=''; }
+async function handlePauseSla(event) {
+  event.preventDefault();
+  const reason=document.getElementById('pauseReason').value, notes=document.getElementById('pauseNotes').value.trim();
+  const errEl=document.getElementById('pauseErrorMessage'), btn=event.target.querySelector('button[type="submit"]');
+  errEl.textContent='';
+  if (!reason) { errEl.textContent='Please choose a reason.'; return; }
+  if (notes.length < 10) { errEl.textContent='Please explain what the ticket is waiting for (min 10 characters).'; return; }
+  btn.disabled=true; btn.textContent='Pausing...';
+  try {
+    const d=await apiFetch(`/incidents/${pauseTicket}/sla-pause`, { method:'PATCH', body:JSON.stringify({ reason, notes }) });
+    closePauseModal();
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    refreshPage();
+  } catch(err) { errEl.textContent=err.message||'Failed to pause SLA.'; }
+  finally { btn.disabled=false; btn.textContent='Pause SLA'; }
+}
+async function resumeSla(tn) {
+  try {
+    const d=await apiFetch(`/incidents/${tn}/sla-resume`, { method:'PATCH', body:'{}' });
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    refreshPage();
+  } catch(err) { alert(err.message||'Failed to resume SLA.'); }
+}
+
 function renderTable(incidents, role) {
   const tbody = document.querySelector('.tickets-table tbody');
   if (!tbody) return;
@@ -368,7 +430,7 @@ function renderTable(incidents, role) {
 if (i.status === 'open' && role==='admin') {
   action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
 } else if (['in_progress','escalated'].includes(i.status) && role==='technician') {
-  action = `<button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>`;
+  action = `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>${i.status==='in_progress'?slaButton(i):''}</div>`;
 } else if (i.status === 'pending_confirmation' && role==='officer' && i.logged_by === (getUser()||{}).userId) {
   action = `
     <div style="display:flex;gap:6px;">
@@ -384,7 +446,7 @@ if (i.status === 'open' && role==='admin') {
       <td>${esc(i.description.substring(0,40))}${i.description.length>40?'...':''}</td>
       <td>${esc(loc)}</td>
       <td><span class="badge ${i.priority}">${pri}</span></td>
-      <td><span class="badge ${stCl}">${st}</span></td>
+      <td><span class="badge ${stCl}">${st}</span>${pausedBadge(i)}</td>
       <td>${esc(asgn)}${i.reassign_count>0?` <span class="badge-reassigned" title="Assigned ${i.reassign_count+1} times">Re-assigned${i.reassign_count>1?' ×'+i.reassign_count:''}</span>`:''}</td>
       <td>${date}</td>
       <td>${action}</td>
@@ -657,8 +719,8 @@ async function loadActiveTickets() {
       <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
       <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
       <td>${formatDate(i.date_logged)}</td>
-      <td><span class="badge inprogress">In Progress</span></td>
-      <td><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button></td>
+      <td><span class="badge inprogress">In Progress</span>${pausedBadge(i)}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button>${slaButton(i)}</div></td>
     </tr>`).join('');
   } catch(e) { console.error('Active tickets:', e); }
 }
@@ -1016,6 +1078,12 @@ async function handleEscalateIncident(event) {
 
 // ── UC2 TRACK ──
 // "Who handled this ticket" — one line per responsible person, from the server's accountability chain
+function renderSlaNotice(i, sla) {
+  const el = document.getElementById('slaNotice'); if (!el) return;
+  if (i.sla_paused_at) { el.style.display='block'; el.innerHTML=`⏸ <strong>SLA paused</strong> since ${esc(formatDateTime(i.sla_paused_at))} — ${esc(i.sla_pause_reason||'')}`; }
+  else if ((i.sla_paused_total_mins||0) > 0) { el.style.display='block'; el.innerHTML=`SLA was paused for a total of ${esc(formatElapsed(i.sla_paused_total_mins))}; the deadline was extended by that time.`; }
+  else { el.style.display='none'; el.innerHTML=''; }
+}
 function renderAccountability(chain) {
   const el = document.getElementById('accountabilityList'); if (!el) return;
   el.innerHTML = (chain || []).map(c => `
@@ -1041,7 +1109,7 @@ async function handleSearch(event) {
     const stEl=document.getElementById('detailStatus');
     if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
     if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
-    renderAccountability(data.accountability);
+    renderAccountability(data.accountability); renderSlaNotice(i, data.sla);
     const auditList=document.querySelector('.audit-list');
     if (auditList && data.auditTrail?.length) {
       auditList.innerHTML=data.auditTrail.map(a=>`

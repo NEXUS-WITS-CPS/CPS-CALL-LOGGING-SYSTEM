@@ -1422,3 +1422,7 @@ body {
 .accountability-list li:last-child { border-bottom:0; }
 .acc-label { min-width:190px; color:#64748b; }
 .acc-time { margin-left:auto; color:#94a3b8; font-size:12px; }
+
+/* SLA paused */
+.badge-paused { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:#dbeafe; color:#1e40af; }
+.sla-notice { margin:14px 0 0; padding:10px 14px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:13px; }

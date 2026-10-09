@@ -29,6 +29,7 @@ async function runSlaCheck(force = false) {
       .select('incident_id, ticket_number, priority, status, assigned_to')
       .in('status', ['open', 'in_progress'])
       .eq('sla_breached', false)
+      .is('sla_paused_at', null)          // a paused ticket's clock is stopped
       .lt('sla_deadline', nowIso);
     if (error) throw error;
     if (!overdue || !overdue.length) return 0;
@@ -45,6 +46,7 @@ async function runSlaCheck(force = false) {
         .eq('incident_id', t.incident_id)
         .in('status', ['open', 'in_progress'])
         .eq('sla_breached', false)
+        .is('sla_paused_at', null)
         .select('incident_id');
       if (!upd || !upd.length) continue;
       escalated++;
@@ -69,4 +71,11 @@ async function runSlaCheck(force = false) {
   return escalated;
 }
 
-module.exports = { runSlaCheck };
+// The deadline a ticket is really working to: while paused, the clock is stopped,
+// so the deadline keeps moving out by however long it has been paused.
+function effectiveDeadline(inc, now = new Date()) {
+  const d = new Date(inc.sla_deadline);
+  return inc.sla_paused_at ? new Date(d.getTime() + (now - new Date(inc.sla_paused_at))) : d;
+}
+
+module.exports = { runSlaCheck, effectiveDeadline };

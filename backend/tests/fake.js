@@ -9,6 +9,7 @@ class Q {
   update(p){ this.op='update'; this.payload=p; return this; }
   eq(c,v){ this.f.push(r=>r[c]===v || String(r[c])===String(v)); return this; }
   in(c,a){ this.f.push(r=>a.includes(r[c])); return this; }
+  is(c,v){ this.f.push(r=>(r[c]??null)===v); return this; }
   lt(c,v){ this.f.push(r=>r[c]!=null && new Date(r[c])<new Date(v)); return this; }
   not(c,op,v){ this.f.push(r=>r[c]!==null && r[c]!==undefined); return this; }
   gte(){return this;} lte(){return this;}
