@@ -68,7 +68,13 @@
     function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
     async function loadUsers() {
       const d = await apiFetch('/users'); const all = d.users || [];
-      const pending = all.filter(u => u.account_status === 'pending'), list = all.filter(u => u.account_status !== 'pending');
+      const pending = all.filter(u => u.account_status === 'pending');
+      // You first, then admins, technicians, officers; A–Z by name inside each group
+      const rank = { admin:0, technician:1, officer:2 };
+      const list = all.filter(u => u.account_status !== 'pending').sort((a, b) =>
+        (b.user_id === meU.userId) - (a.user_id === meU.userId) ||
+        (rank[a.role] ?? 9) - (rank[b.role] ?? 9) ||
+        String(a.full_name).localeCompare(String(b.full_name), undefined, { sensitivity:'base' }));
       document.getElementById('pendingSection').style.display = pending.length ? '' : 'none';
       document.getElementById('pendingCount').textContent = `${pending.length} waiting`;
       document.getElementById('pendingBody').innerHTML = pending.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(formatDateTime(u.requested_at))}</td>
