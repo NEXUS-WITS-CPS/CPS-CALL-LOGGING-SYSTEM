@@ -22,7 +22,7 @@
     <main class="main-content">
       <header class="page-header"><h1>Users</h1><p>One named account per person, so every action in the audit trail is traceable to an individual</p></header>
       <p class="success-message" id="successMessage"></p>
-      <section class="filter-card"><section class="form-row"><div class="form-group"><button class="btn-primary" onclick="document.getElementById('userModal').showModal()">+ Add User</button> <button class="btn-secondary" onclick="document.getElementById('bulkModal').showModal()">⇪ Bulk Import</button></div></section></section>
+      <section class="toolbar"><button class="btn-primary" onclick="document.getElementById('userModal').showModal()">+ Add User</button><button class="btn-primary" onclick="document.getElementById('bulkModal').showModal()">⇪ Bulk Import</button></section>
       <section class="table-section" id="pendingSection" style="display:none;">
         <header class="table-header"><h2>Access Requests Awaiting Approval</h2><span class="badge-count" id="pendingCount"></span></header>
         <table class="tickets-table"><thead><tr><th>Name</th><th>Email</th><th>Requested</th><th>Role to grant</th><th>Action</th></tr></thead><tbody id="pendingBody"></tbody></table>
@@ -64,6 +64,7 @@
   <script src="../assets/js/main.js"></script>
   <script>checkAccess();</script>
   <script>
+    const cap = v => String(v||'').charAt(0).toUpperCase() + String(v||'').slice(1);
     const meU = getUser(); let pwId = null;
     function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
     async function loadUsers() {
@@ -81,9 +82,9 @@
         <td><select id="role_${u.user_id}"><option value="officer">Officer</option><option value="technician">Technician</option><option value="admin">Admin</option></select></td>
         <td><button class="btn-assign" onclick="reviewReq(${u.user_id},'approve')">Approve</button> <button class="btn-assign" onclick="reviewReq(${u.user_id},'reject')">Decline</button></td></tr>`).join('');
       document.getElementById('userCount').textContent = `${list.filter(u=>u.is_active).length} active · ${list.length} total`;
-      document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(u.role)}</td>
+      document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(cap(u.role))}</td>
         <td><span class="badge ${u.is_active?'low':'cancelled'}">${u.is_active?'Active':(u.account_status==='rejected'?'Declined':'Deactivated')}</span>${u.must_change_password?' <small>(must change password)</small>':''}</td>
-        <td>${u.is_active ? (u.user_id===meU.userId ? '<small>(you)</small>' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
+        <td>${u.is_active ? (u.user_id===meU.userId ? '' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
           <button class="btn-assign" onclick="openPw(${u.user_id},${q(u.full_name)})">Reset password</button></td></tr>`).join('');
     }
     window.pageRefresh = loadUsers;
