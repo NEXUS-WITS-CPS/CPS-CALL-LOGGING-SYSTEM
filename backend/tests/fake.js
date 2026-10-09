@@ -1,6 +1,6 @@
 // Minimal in-memory stand-in for the Supabase client (enough for the routes' queries)
-const tables = { users:[], incidents:[], audit_trail:[], notifications:[], escalations:[], confirmations:[], resolution_notes:[], categories:[], locations:[], assets:[], spare_parts_used:[], asset_movements:[], maintenance_schedules:[], maintenance_log:[] };
-const idcol = { users:'user_id', incidents:'incident_id', audit_trail:'audit_id', notifications:'notification_id', escalations:'escalation_id', confirmations:'confirmation_id', resolution_notes:'note_id', assets:'asset_id', spare_parts_used:'part_id', asset_movements:'movement_id', maintenance_schedules:'schedule_id', maintenance_log:'log_id' };
+const tables = { users:[], incidents:[], audit_trail:[], notifications:[], escalations:[], confirmations:[], resolution_notes:[], categories:[], locations:[], assets:[], spare_parts_used:[], asset_movements:[], maintenance_schedules:[], maintenance_log:[], user_audit:[] };
+const idcol = { users:'user_id', incidents:'incident_id', audit_trail:'audit_id', notifications:'notification_id', escalations:'escalation_id', confirmations:'confirmation_id', resolution_notes:'note_id', assets:'asset_id', spare_parts_used:'part_id', asset_movements:'movement_id', maintenance_schedules:'schedule_id', maintenance_log:'log_id', user_audit:'audit_id' };
 const seq = {};
 class Q {
   constructor(t){ this.t=t; this.f=[]; this.op='select'; this.lim=null; this.ord=null; this.one=false; this.opts={}; this.payload=null; }

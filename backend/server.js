@@ -63,6 +63,11 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts — please try again in 15 minutes.' }
 });
 app.use('/api/auth/login', loginLimiter);
+// Access requests are public, so keep them to a few per visitor per hour
+app.use('/api/auth/request-access', rateLimit({
+  windowMs: 60 * 60 * 1000, max: 5,
+  message: { error: 'Too many access requests from this connection — please try again later.' }
+}));
 
 // ── HEALTH CHECK ──
 app.get('/', (req, res) => {

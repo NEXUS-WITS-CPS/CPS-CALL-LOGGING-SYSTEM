@@ -254,5 +254,44 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('GET',`/reports/technician-performance/3`,A); check('admin can drill down into a technician\'s performance',r.s===200);
  r=await call('GET',`/reports/technician-performance/3`,O); check('officer cannot access the technician drill-down report (403)',r.s===403);
 
+ // ── Access requests, approval, bulk import, forced password change ──
+ r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'sam@gmail.com',password:'longenough1'}); check('access request rejects non-Wits email (400)',r.s===400);
+ r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'sam@wits.ac.za',password:'short'}); check('access request rejects short password (400)',r.s===400);
+ r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'Sam@Wits.ac.za',password:'longenough1',role:'admin'}); const sam=T.users.find(u=>u.email==='sam@wits.ac.za');
+ check('access request creates a pending account with no privileges (even if a role is sent)',r.s===201&&sam&&sam.account_status==='pending'&&sam.is_active===false&&sam.role==='caller',JSON.stringify(r.j));
+ r=await call('POST','/auth/request-access',null,{fullName:'Sam Again',email:'sam@wits.ac.za',password:'longenough1'}); check('duplicate request refused (409)',r.s===409);
+ r=await call('POST','/auth/login',null,{email:'sam@wits.ac.za',password:'wrongpass'}); check('pending user with wrong password sees generic error (401)',r.s===401);
+ r=await call('POST','/auth/login',null,{email:'sam@wits.ac.za',password:'longenough1'}); check('pending user cannot sign in (403, awaiting approval)',r.s===403&&/waiting/i.test(r.j.error||''),JSON.stringify(r.j));
+ r=await call('PATCH',`/users/${sam.user_id}/approve`,O,{role:'officer'}); check('non-admin cannot approve a request (403)',r.s===403);
+ r=await call('PATCH',`/users/${sam.user_id}/approve`,A,{role:'superuser'}); check('approval needs a valid role (400)',r.s===400);
+ r=await call('PATCH',`/users/${sam.user_id}/approve`,A,{role:'technician'}); check('admin approves and assigns the role',r.s===200&&sam.role==='technician'&&sam.is_active===true&&sam.account_status==='active'&&sam.reviewed_by===1,JSON.stringify(r.j));
+ r=await call('PATCH',`/users/${sam.user_id}/approve`,A,{role:'officer'}); check('an already-approved request cannot be approved again (400)',r.s===400);
+ r=await call('POST','/auth/login',null,{email:'sam@wits.ac.za',password:'longenough1'}); check('approved user can now sign in',r.s===200&&r.j.user.role==='technician');
+ r=await call('POST','/auth/request-access',null,{fullName:'Rita Decline',email:'rita@wits.ac.za',password:'longenough1'}); const rita=T.users.find(u=>u.email==='rita@wits.ac.za');
+ r=await call('PATCH',`/users/${rita.user_id}/reject`,A,{}); check('admin declines a request',r.s===200&&rita.account_status==='rejected'&&rita.is_active===false);
+ r=await call('POST','/auth/login',null,{email:'rita@wits.ac.za',password:'longenough1'}); check('declined user cannot sign in (403)',r.s===403);
+
+ r=await call('POST','/users/bulk',O,{rows:[{fullName:'X Person',email:'x@wits.ac.za',role:'officer'}]}); check('officer cannot bulk import (403)',r.s===403);
+ r=await call('POST','/users/bulk',A,{rows:[
+   {fullName:'Bulk One',email:'bulk1@wits.ac.za',role:'officer'},{fullName:'Bulk Two',email:'bulk2@wits.ac.za',role:'technician'},
+   {fullName:'Bulk One Again',email:'bulk1@wits.ac.za',role:'officer'},{fullName:'Bad Role',email:'bad@wits.ac.za',role:'boss'},
+   {fullName:'No Mail',email:'nomail',role:'officer'},{fullName:'Sam Newcomer',email:'sam@wits.ac.za',role:'officer'}]});
+ check('bulk import creates valid rows and reports the bad ones',r.s===201&&r.j.created===2&&r.j.failed===4,JSON.stringify(r.j));
+ const b1=T.users.find(u=>u.email==='bulk1@wits.ac.za'); const tmpPw=r.j.results.find(x=>x.ok).tempPassword;
+ check('bulk users get a temporary password and must change it',!!b1&&b1.must_change_password===true&&await bcrypt.compare(tmpPw,b1.password_hash)&&tmpPw.length>=8);
+ r=await call('POST','/auth/login',null,{email:'bulk1@wits.ac.za',password:tmpPw}); const mcTok=r.j.token;
+ check('login flags that the password must be changed',r.s===200&&r.j.user.mustChangePassword===true);
+ r=await call('GET','/incidents',mcTok); check('everything else is blocked until the password is changed (403)',r.s===403&&r.j.code==='PASSWORD_CHANGE_REQUIRED');
+ r=await call('POST','/auth/change-password',mcTok,{currentPassword:'nottheone',newPassword:'brandnew-pw1'}); check('change password needs the correct current password (401)',r.s===401);
+ r=await call('POST','/auth/change-password',mcTok,{currentPassword:tmpPw,newPassword:'short'}); check('new password must be 8+ characters (400)',r.s===400);
+ r=await call('POST','/auth/change-password',mcTok,{currentPassword:tmpPw,newPassword:'brandnew-pw1'}); check('user chooses their own password and gets a full token',r.s===200&&b1.must_change_password===false&&!!r.j.token);
+ r=await call('GET','/incidents',r.j.token); check('normal access works after the change',r.s===200);
+ r=await call('PATCH',`/users/${b1.user_id}/password`,A,{password:'Reset-temp-1'}); check('admin password reset forces a change at next sign-in',r.s===200&&b1.must_change_password===true);
+ r=await call('GET','/users/audit',A); const acts=(r.j.events||[]).map(e=>e.action);
+ check('account history records request, approval, decline, bulk create and reset',r.s===200&&['requested','approved','rejected','bulk_created','password_reset','password_changed'].every(a=>acts.includes(a)),JSON.stringify(acts));
+ check('approval entry names who approved',(r.j.events||[]).some(e=>e.action==='approved'&&e.by==='Ashley Admin'&&e.user==='Sam Newcomer'));
+ r=await call('GET','/users/audit',O); check('officer cannot read the account history (403)',r.s===403);
+ r=await call('GET','/users/technicians',A); check('pending/declined people never appear in the assign list',!(r.j.technicians||[]).some(t=>t.email==='rita@wits.ac.za'));
+
  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 })();

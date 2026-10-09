@@ -22,7 +22,11 @@
     <main class="main-content">
       <header class="page-header"><h1>Users</h1><p>One named account per person, so every action in the audit trail is traceable to an individual</p></header>
       <p class="success-message" id="successMessage"></p>
-      <section class="filter-card"><section class="form-row"><div class="form-group"><button class="btn-primary" onclick="document.getElementById('userModal').showModal()">+ Add User</button></div></section></section>
+      <section class="filter-card"><section class="form-row"><div class="form-group"><button class="btn-primary" onclick="document.getElementById('userModal').showModal()">+ Add User</button> <button class="btn-secondary" onclick="document.getElementById('bulkModal').showModal()">⇪ Bulk Import</button></div></section></section>
+      <section class="table-section" id="pendingSection" style="display:none;">
+        <header class="table-header"><h2>Access Requests Awaiting Approval</h2><span class="badge-count" id="pendingCount"></span></header>
+        <table class="tickets-table"><thead><tr><th>Name</th><th>Email</th><th>Requested</th><th>Role to grant</th><th>Action</th></tr></thead><tbody id="pendingBody"></tbody></table>
+      </section>
       <section class="table-section">
         <header class="table-header"><h2>All Users</h2><span class="badge-count" id="userCount">Loading…</span></header>
         <table class="tickets-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
@@ -41,6 +45,16 @@
       <p id="userError" style="color:red;font-size:13px;min-height:18px;"></p>
       <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('userModal').close()">Cancel</button><button type="submit" class="btn-primary">Create User</button></section>
     </form></section></dialog>
+  <dialog id="bulkModal" class="modal"><section class="modal-content">
+    <header class="modal-header"><h2>Bulk Import Users</h2><button class="modal-close" onclick="document.getElementById('bulkModal').close()">✕</button></header>
+    <div class="form-group"><label>One person per line: <code>name, email, role</code></label>
+      <textarea id="bulkText" rows="8" placeholder="Thabo Mokoena, t.mokoena@wits.ac.za, officer&#10;Sipho Nkosi, s.nkosi@wits.ac.za, technician"></textarea></div>
+    <div class="form-group"><label>…or choose a CSV file</label><input type="file" id="bulkFile" accept=".csv,.txt" onchange="loadBulkFile(this)" /></div>
+    <small class="field-hint">Roles: officer, technician, admin, caller (default officer). Each person gets a temporary password and must choose their own at first sign-in.</small>
+    <p id="bulkError" style="color:red;font-size:13px;min-height:18px;"></p>
+    <div id="bulkResult"></div>
+    <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('bulkModal').close()">Close</button><button type="button" class="btn-primary" id="bulkGo" onclick="handleBulk()">Import</button></section>
+  </section></dialog>
   <dialog id="pwModal" class="modal"><section class="modal-content">
     <header class="modal-header"><h2>Reset Password</h2><button class="modal-close" onclick="document.getElementById('pwModal').close()">✕</button></header>
     <section class="modal-ticket-info"><p id="pwWho"></p></section>
@@ -53,10 +67,16 @@
     const meU = getUser(); let pwId = null;
     function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
     async function loadUsers() {
-      const d = await apiFetch('/users'); const list = d.users || [];
+      const d = await apiFetch('/users'); const all = d.users || [];
+      const pending = all.filter(u => u.account_status === 'pending'), list = all.filter(u => u.account_status !== 'pending');
+      document.getElementById('pendingSection').style.display = pending.length ? '' : 'none';
+      document.getElementById('pendingCount').textContent = `${pending.length} waiting`;
+      document.getElementById('pendingBody').innerHTML = pending.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(formatDateTime(u.requested_at))}</td>
+        <td><select id="role_${u.user_id}"><option value="officer">Officer</option><option value="technician">Technician</option><option value="admin">Admin</option><option value="caller">Caller</option></select></td>
+        <td><button class="btn-assign" onclick="reviewReq(${u.user_id},'approve')">Approve</button> <button class="btn-assign" onclick="reviewReq(${u.user_id},'reject')">Decline</button></td></tr>`).join('');
       document.getElementById('userCount').textContent = `${list.filter(u=>u.is_active).length} active · ${list.length} total`;
       document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(u.role)}</td>
-        <td><span class="badge ${u.is_active?'low':'cancelled'}">${u.is_active?'Active':'Deactivated'}</span></td>
+        <td><span class="badge ${u.is_active?'low':'cancelled'}">${u.is_active?'Active':(u.account_status==='rejected'?'Declined':'Deactivated')}</span>${u.must_change_password?' <small>(must change password)</small>':''}</td>
         <td>${u.is_active ? (u.user_id===meU.userId ? '<small>(you)</small>' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
           <button class="btn-assign" onclick="openPw(${u.user_id},${q(u.full_name)})">Reset password</button></td></tr>`).join('');
     }
@@ -69,6 +89,36 @@
       try { const d = await apiFetch('/auth/register', { method:'POST', body: JSON.stringify({ fullName:uName.value.trim(), email:uEmail.value.trim(), password:uPass.value, role:uRole.value }) });
         document.getElementById('userModal').close(); uName.value=uEmail.value=uPass.value=''; toast(d.message); loadUsers(); }
       catch(ex) { err.textContent = ex.message; }
+    }
+    async function reviewReq(id, action) {
+      try { const body = action==='approve' ? JSON.stringify({ role: document.getElementById('role_'+id).value }) : '{}';
+        const d = await apiFetch(`/users/${id}/${action}`, { method:'PATCH', body }); toast(d.message); loadUsers(); } catch(e) { alert(e.message); }
+    }
+    function loadBulkFile(inp) { const f = inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { document.getElementById('bulkText').value = r.result; }; r.readAsText(f); }
+    function parseBulk(text) {
+      return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => l.split(/[,;\t]/).map(x => x.trim().replace(/^"|"$/g,'')))
+        .filter(c => !/^(full\s*)?name$/i.test(c[0]))
+        .map(c => ({ fullName: c[0], email: c[1], role: (c[2] || 'officer') }));
+    }
+    let lastBulk = [];
+    async function handleBulk() {
+      const err = document.getElementById('bulkError'); err.textContent = '';
+      const rows = parseBulk(document.getElementById('bulkText').value);
+      if (!rows.length) { err.textContent = 'Add at least one line.'; return; }
+      try {
+        const d = await apiFetch('/users/bulk', { method:'POST', body: JSON.stringify({ rows }) });
+        showBulk(d); loadUsers();
+      } catch (ex) { err.textContent = ex.message; }
+    }
+    function showBulk(d) {
+      lastBulk = d.results || [];
+      document.getElementById('bulkResult').innerHTML = `<p><strong>${esc(d.message)}</strong></p><table class="tickets-table"><thead><tr><th>Name</th><th>Email</th><th>Result</th></tr></thead><tbody>` +
+        lastBulk.map(r => `<tr><td>${esc(r.fullName)}</td><td>${esc(r.email)}</td><td>${r.ok ? 'Temp password: <code>'+esc(r.tempPassword)+'</code>' : '<span style="color:red">'+esc(r.error)+'</span>'}</td></tr>`).join('') +
+        `</tbody></table><p><button class="btn-secondary" onclick="downloadBulk()">Download list (CSV)</button> <small>Shown once. Share each password privately.</small></p>`;
+    }
+    function downloadBulk() {
+      const csv = 'name,email,role,temporary_password,result\n' + lastBulk.map(r => [r.fullName, r.email, r.role||'', r.tempPassword||'', r.ok?'created':r.error].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' })); a.download = 'new-users.csv'; a.click();
     }
     loadUsers();
   </script>

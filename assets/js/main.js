@@ -140,6 +140,7 @@ function checkAccess() {
   const token = getToken();
   const page  = window.location.pathname.split('/').pop();
   if (!user || !token) { window.location.href = '../index.html'; return; }
+  if (user.mustChangePassword && page !== 'change-password.html') { window.location.href = 'change-password.html'; return; }
   const allowed = roleAccess[user.role] || [];
   if (!allowed.includes(page)) { window.location.href = '../index.html'; return; }
   const navUser = document.querySelector('.nav-user');
@@ -268,6 +269,7 @@ async function handleLogin(event) {
   try {
     const data = await apiFetch('/auth/login', { method:'POST', body:JSON.stringify({ email, password:pass }) });
     setSession(data.token, data.user);
+    if (data.user.mustChangePassword) { window.location.href = 'pages/change-password.html'; return; }
     const pages = { admin:'pages/dashboard.html', officer:'pages/officer-dashboard.html', technician:'pages/technician-dashboard.html' };
     window.location.href = pages[data.user.role] || 'pages/dashboard.html';
   } catch(err) {
@@ -1240,3 +1242,37 @@ async function handleSearch(event) {
 
 // Note: Reports & Analytics (generateReport, exportCSV/Excel/PDF, filtering)
 // is implemented with live data directly in pages/reports.html.
+
+
+// ── Request access (login page) ──
+function showRequestAccess(on) {
+  document.getElementById('loginCard').style.display = on ? 'none' : '';
+  document.getElementById('accessCard').style.display = on ? '' : 'none';
+}
+async function handleRequestAccess(event) {
+  event.preventDefault();
+  const err = document.getElementById('raError'), ok = document.getElementById('raSuccess'), btn = event.target.querySelector('button[type="submit"]');
+  err.textContent = ''; ok.textContent = '';
+  const pw = document.getElementById('raPassword').value;
+  if (pw !== document.getElementById('raPassword2').value) { err.textContent = 'The two passwords do not match.'; return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const d = await apiFetch('/auth/request-access', { method:'POST', body: JSON.stringify({ fullName: document.getElementById('raName').value.trim(), email: document.getElementById('raEmail').value.trim(), password: pw }) });
+    ok.textContent = d.message; event.target.reset(); btn.textContent = 'Request sent';
+  } catch (e) { err.textContent = e.message; btn.disabled = false; btn.textContent = 'Request Access'; }
+}
+
+// ── Change password (forced after an admin reset / first login) ──
+async function handleChangePassword(event) {
+  event.preventDefault();
+  const err = document.getElementById('cpError');
+  err.textContent = '';
+  const np = document.getElementById('cpNew').value;
+  if (np !== document.getElementById('cpNew2').value) { err.textContent = 'The two new passwords do not match.'; return; }
+  try {
+    const d = await apiFetch('/auth/change-password', { method:'POST', body: JSON.stringify({ currentPassword: document.getElementById('cpCurrent').value, newPassword: np }) });
+    setSession(d.token, d.user);
+    const pages = { admin:'dashboard.html', officer:'officer-dashboard.html', technician:'technician-dashboard.html' };
+    window.location.href = pages[d.user.role] || 'dashboard.html';
+  } catch (e) { err.textContent = e.message; }
+}

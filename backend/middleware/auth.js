@@ -10,6 +10,10 @@ function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+    // a temporary password must be replaced before anything else is allowed
+    if (decoded.mustChange && !(req.originalUrl || '').startsWith('/api/auth/change-password') && !(req.originalUrl || '').startsWith('/api/auth/me')) {
+      return res.status(403).json({ error: 'You must change your temporary password first.', code: 'PASSWORD_CHANGE_REQUIRED' });
+    }
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token. Please log in again.' });
