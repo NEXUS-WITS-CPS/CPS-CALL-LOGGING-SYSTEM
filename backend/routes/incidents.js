@@ -159,6 +159,7 @@ router.get('/', async (req, res) => {
         description, caller_name, caller_contact, logged_by,
         date_logged, date_assigned, date_resolved, date_closed,
         sla_deadline, sla_breached, assigned_to, reassign_count, sla_paused_at, sla_pause_reason,
+        date_accepted, date_arrived, date_repair_started,
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(user_id, full_name)
@@ -279,10 +280,25 @@ router.get('/:ticketNumber', async (req, res) => {
       link('cancelled', 'Cancelled by', /^Ticket Cancelled/)
     ].filter(Boolean);
 
+    // SLA tracking timeline: each milestone, with the gap from the previous one
+    const milestones = [
+      ['logged', 'Logged', incident.date_logged], ['assigned', 'Assigned', incident.date_assigned],
+      ['accepted', 'Accepted by technician', incident.date_accepted], ['arrived', 'Arrived on site', incident.date_arrived],
+      ['repair_started', 'Repair started', incident.date_repair_started], ['resolved', 'Completed', incident.date_resolved],
+      ['closed', 'Confirmed by user', incident.date_closed]
+    ];
+    let prev = null;
+    const timeline = milestones.map(([key, label, at]) => {
+      const gapMins = at && prev ? Math.max(0, Math.round((new Date(at) - new Date(prev)) / 60000)) : null;
+      if (at) prev = at;
+      return { key, label, at: at || null, gapMins };
+    });
+
     res.json({
       incident,
       auditTrail: trail,
       accountability,
+      timeline,
       resolutionNote: resNotes?.[0] || null,
       sla: {
         status: slaStatus,
@@ -336,7 +352,9 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
       .from('incidents')
       .update({ assigned_to: assignee.user_id, status: 'in_progress', priority: priority || incident.priority, date_assigned: now,
                 // a ticket that was assigned before (re-assigned, or reopened after a rejected resolution) counts as a re-assignment
-                reassign_count: (incident.reassign_count || 0) + (incident.date_assigned ? 1 : 0) })
+                reassign_count: (incident.reassign_count || 0) + (incident.date_assigned ? 1 : 0),
+                // a new assignee starts their own accepted / arrived / repair steps (earlier ones stay in the audit trail)
+                date_accepted: null, date_arrived: null, date_repair_started: null })
       .eq('ticket_number', incident.ticket_number).select().single();
     if (error) throw error;
 
@@ -351,6 +369,45 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
   } catch (err) {
     console.error('Assign error:', err);
     res.status(500).json({ error: err.message || 'Failed to assign incident.' });
+  }
+});
+
+// =====================================================
+// WORK PROGRESS  PATCH /:ticketNumber/progress   { step }
+// The assigned technician records accepted -> arrived on site -> repair started,
+// in that order, so every SLA milestone has a trustworthy timestamp.
+// =====================================================
+const PROGRESS_STEPS = [
+  { step: 'accepted',       col: 'date_accepted',       label: 'Job accepted' },
+  { step: 'arrived',        col: 'date_arrived',        label: 'Arrived on site' },
+  { step: 'repair_started', col: 'date_repair_started', label: 'Repair started' }
+];
+router.patch('/:ticketNumber/progress', requireRole('admin', 'technician'), async (req, res) => {
+  try {
+    const def = PROGRESS_STEPS.find(p => p.step === req.body.step);
+    if (!def) return res.status(400).json({ error: 'Unknown step. Use accepted, arrived or repair_started.' });
+
+    const { data: incident } = await supabase.from('incidents')
+      .select('incident_id, ticket_number, status, assigned_to, date_accepted, date_arrived, date_repair_started').eq('ticket_number', String(req.params.ticketNumber).toUpperCase()).single();
+    if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!isAssigneeOrAdmin(req.user, incident)) return res.status(403).json({ error: 'Only the technician assigned to this ticket (or an admin) can record progress.' });
+    const allowed = ['in_progress', 'escalated'];
+    if (!allowed.includes(incident.status)) return wrongStatus(res, incident, allowed, 'record progress on');
+
+    const idx = PROGRESS_STEPS.indexOf(def);
+    if (incident[def.col]) return res.status(409).json({ error: `${def.label} has already been recorded for ${incident.ticket_number}.` });
+    const missing = PROGRESS_STEPS.slice(0, idx).find(p => !incident[p.col]);
+    if (missing) return res.status(409).json({ error: `Record "${missing.label}" first.` });
+
+    const now = new Date().toISOString();
+    const { data: updated, error } = await supabase.from('incidents')
+      .update({ [def.col]: now }).eq('ticket_number', incident.ticket_number).select().single();
+    if (error) throw error;
+    await writeAudit(incident.incident_id, req.user.userId, `Work Progress — ${def.label} (recorded by ${req.user.fullName})`, null, `${def.col}: ${now}`);
+    res.json({ message: `${def.label} recorded for ${incident.ticket_number}.`, incident: updated });
+  } catch (err) {
+    console.error('Progress error:', err);
+    res.status(500).json({ error: err.message || 'Failed to record progress.' });
   }
 });
 

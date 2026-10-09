@@ -2,7 +2,7 @@
 // REPORTS ROUTES — /api/reports
 // R1 Resolution Time · R2 Call Volume
 // R3 Priority Analysis · R4 Incident History
-// R5 Technician Performance
+// R5 Technician Performance · R6 SLA Compliance
 // =====================================================
 const express  = require('express');
 const supabase = require('../supabaseClient');
@@ -404,6 +404,63 @@ router.get('/technician-performance/:userId', async (req, res) => {
     res.json({ technician: tech, incidents });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load technician history.' });
+  }
+});
+
+// =====================================================
+// R6 — SLA COMPLIANCE & MILESTONE REPORT
+// GET /api/reports/sla-performance
+// Success / breach %, monthly compliance, and per-technician response,
+// travel and repair times taken from the SLA tracking timestamps.
+// =====================================================
+router.get('/sla-performance', async (req, res) => {
+  try {
+    const { dateFrom, dateTo } = req.query;
+    let query = supabase.from('incidents').select(`
+        ticket_number, priority, status, date_logged, date_assigned, date_accepted, date_arrived,
+        date_repair_started, date_resolved, sla_breached, sla_paused_total_mins, assigned_to,
+        assigned_user:users!incidents_assigned_to_fkey(full_name)`);
+    query = dateFilter(query, dateFrom, dateTo);
+    const { data } = await query;
+    const all = (data || []).filter(i => i.status !== 'cancelled');
+
+    const pct = (n, d) => d ? Math.round((n / d) * 100) : 100;
+    const mins = (a, b) => (a && b) ? Math.max(0, Math.round((new Date(b) - new Date(a)) / 60000)) : null;
+    const avg = arr => { const v = arr.filter(x => x !== null); return v.length ? Math.round(v.reduce((s, x) => s + x, 0) / v.length) : null; };
+
+    const breached = all.filter(i => i.sla_breached).length;
+    const overall = { total: all.length, met: all.length - breached, breached,
+                      successPct: pct(all.length - breached, all.length), breachPct: all.length ? 100 - pct(all.length - breached, all.length) : 0 };
+
+    const byMonth = {};
+    all.forEach(i => { const k = new Date(i.date_logged).toISOString().slice(0, 7); (byMonth[k] = byMonth[k] || []).push(i); });
+    const monthly = Object.keys(byMonth).sort().map(k => {
+      const b = byMonth[k].filter(i => i.sla_breached).length;
+      return { month: k, total: byMonth[k].length, breached: b, compliancePct: pct(byMonth[k].length - b, byMonth[k].length) };
+    });
+
+    const byTech = {};
+    all.filter(i => i.assigned_to).forEach(i => { (byTech[i.assigned_to] = byTech[i.assigned_to] || { name: i.assigned_user?.full_name || 'Unknown', items: [] }).items.push(i); });
+    const technicians = Object.keys(byTech).map(id => {
+      const { name, items } = byTech[id]; const b = items.filter(i => i.sla_breached).length;
+      return {
+        userId: Number(id), fullName: name, tickets: items.length, breached: b, compliancePct: pct(items.length - b, items.length),
+        avgResponseMins: avg(items.map(i => mins(i.date_assigned, i.date_accepted))),
+        avgTravelMins:   avg(items.map(i => mins(i.date_accepted, i.date_arrived))),
+        avgRepairMins:   avg(items.map(i => mins(i.date_repair_started, i.date_resolved))),
+        pausedMins: items.reduce((s, i) => s + (i.sla_paused_total_mins || 0), 0)
+      };
+    }).sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+    const byPriority = ['critical', 'high', 'medium', 'low'].map(p => {
+      const items = all.filter(i => i.priority === p); const b = items.filter(i => i.sla_breached).length;
+      return { priority: p, total: items.length, breached: b, compliancePct: pct(items.length - b, items.length) };
+    });
+
+    res.json({ overall, monthly, technicians, byPriority });
+  } catch (err) {
+    console.error('R6 error:', err);
+    res.status(500).json({ error: 'Failed to generate SLA report.' });
   }
 });
 

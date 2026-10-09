@@ -352,6 +352,19 @@ async function loadTechDashboard() {
   } catch(e) { console.error('Tech dashboard:', e); }
 }
 
+// ── WORK PROGRESS (SLA milestones) ──
+function progressButton(i) {
+  const next = !i.date_accepted ? ['accepted','✔ Accept job'] : !i.date_arrived ? ['arrived','📍 Arrived on site'] : !i.date_repair_started ? ['repair_started','🔧 Start repair'] : null;
+  return next ? `<button class="btn-assign" style="background:#dcfce7;color:#166534;" onclick="recordProgress(${q(i.ticket_number)},'${next[0]}')">${next[1]}</button>` : '';
+}
+async function recordProgress(tn, step) {
+  try {
+    const d=await apiFetch(`/incidents/${tn}/progress`, { method:'PATCH', body:JSON.stringify({ step }) });
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    refreshPage();
+  } catch(err) { alert(err.message||'Failed to record progress.'); }
+}
+
 // ── SLA PAUSE / RESUME ──
 function slaButton(i) {
   return i.sla_paused_at
@@ -430,7 +443,7 @@ function renderTable(incidents, role) {
 if (i.status === 'open' && role==='admin') {
   action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
 } else if (['in_progress','escalated'].includes(i.status) && role==='technician') {
-  action = `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>${i.status==='in_progress'?slaButton(i):''}</div>`;
+  action = `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${i.status==='in_progress'?slaButton(i):''}</div>`;
 } else if (i.status === 'pending_confirmation' && role==='officer' && i.logged_by === (getUser()||{}).userId) {
   action = `
     <div style="display:flex;gap:6px;">
@@ -720,7 +733,7 @@ async function loadActiveTickets() {
       <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
       <td>${formatDate(i.date_logged)}</td>
       <td><span class="badge inprogress">In Progress</span>${pausedBadge(i)}</td>
-      <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button>${slaButton(i)}</div></td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${slaButton(i)}</div></td>
     </tr>`).join('');
   } catch(e) { console.error('Active tickets:', e); }
 }
@@ -1078,6 +1091,14 @@ async function handleEscalateIncident(event) {
 
 // ── UC2 TRACK ──
 // "Who handled this ticket" — one line per responsible person, from the server's accountability chain
+function renderTimeline(tl) {
+  const el = document.getElementById('slaTimeline'); if (!el) return;
+  el.innerHTML = (tl || []).map(t => `
+    <li class="${t.at ? 'done' : 'pending'}"><span class="tl-dot"></span>
+      <span class="tl-label">${esc(t.label)}</span>
+      <span class="tl-time">${t.at ? esc(formatDateTime(t.at)) : 'not yet'}</span>
+      ${t.gapMins !== null ? `<small class="tl-gap">+${esc(formatElapsed(t.gapMins))}</small>` : ''}</li>`).join('');
+}
 function renderSlaNotice(i, sla) {
   const el = document.getElementById('slaNotice'); if (!el) return;
   if (i.sla_paused_at) { el.style.display='block'; el.innerHTML=`⏸ <strong>SLA paused</strong> since ${esc(formatDateTime(i.sla_paused_at))} — ${esc(i.sla_pause_reason||'')}`; }
@@ -1109,7 +1130,7 @@ async function handleSearch(event) {
     const stEl=document.getElementById('detailStatus');
     if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
     if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
-    renderAccountability(data.accountability); renderSlaNotice(i, data.sla);
+    renderAccountability(data.accountability); renderSlaNotice(i, data.sla); renderTimeline(data.timeline);
     const auditList=document.querySelector('.audit-list');
     if (auditList && data.auditTrail?.length) {
       auditList.innerHTML=data.auditTrail.map(a=>`

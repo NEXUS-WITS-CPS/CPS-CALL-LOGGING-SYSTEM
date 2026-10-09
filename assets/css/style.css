@@ -1426,3 +1426,13 @@ body {
 /* SLA paused */
 .badge-paused { display:inline-block; margin-left:6px; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:#dbeafe; color:#1e40af; }
 .sla-notice { margin:14px 0 0; padding:10px 14px; border-radius:8px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:13px; }
+
+/* SLA milestone timeline */
+.sla-timeline { list-style:none; margin:0; padding:0; }
+.sla-timeline li { display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; padding:5px 0; font-size:13px; }
+.sla-timeline .tl-dot { width:10px; height:10px; border-radius:50%; background:#cbd5e1; flex:none; align-self:center; }
+.sla-timeline .done .tl-dot { background:#16a34a; }
+.sla-timeline .tl-label { min-width:170px; font-weight:600; color:#334155; }
+.sla-timeline .pending .tl-label, .sla-timeline .pending .tl-time { color:#94a3b8; font-weight:400; }
+.sla-timeline .tl-time { color:#475569; }
+.sla-timeline .tl-gap { margin-left:auto; color:#64748b; }

@@ -149,6 +149,15 @@
           </section>
           <button class="btn-report" onclick="generateReport('performance')">Generate Report</button>
         </article>
+        <article class="report-card">
+          <header class="report-card-header"><span class="report-icon">🛡️</span><h3>SLA Compliance Report</h3></header>
+          <p class="report-description">SLA success and breach rates, monthly compliance, and each technician's response, travel and repair times.</p>
+          <section class="report-stats">
+            <div class="report-stat"><span class="report-stat-number" id="slaSuccessPct">—</span><span class="report-stat-label">SLA Success</span></div>
+            <div class="report-stat"><span class="report-stat-number" id="slaBreachPct">—</span><span class="report-stat-label">SLA Breach</span></div>
+          </section>
+          <button class="btn-report" onclick="generateReport('sla')">Generate Report</button>
+        </article>
       </section>
 
       <!-- Analytics Charts (per-report visual summary, populated by generateReport) -->
@@ -381,6 +390,41 @@
       }
     }
 
+    // ── SLA COMPLIANCE REPORT ──
+    const fmtMins = m => m === null || m === undefined ? '—' : (m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`);
+    async function renderSlaReport() {
+      const container = document.getElementById('reportTableContainer');
+      const charts = document.getElementById('reportChartsContainer');
+      document.getElementById('reportResultsTitle').textContent = '🛡️ SLA Compliance Report';
+      document.getElementById('reportChartsTitle').textContent = 'Chart Summary — SLA Compliance';
+      document.getElementById('reportCharts').style.display = 'block';
+      charts.innerHTML = '';
+      try {
+        const r = await apiFetch(`/reports/sla-performance${buildQuery()}`);
+        const o = r.overall;
+        document.getElementById('slaSuccessPct').textContent = o.successPct + '%';
+        document.getElementById('slaBreachPct').textContent = o.breachPct + '%';
+        renderHBarPanel(charts, 'Monthly SLA Compliance', 'Share of tickets logged that month with no breach',
+          r.monthly.map(m => ({ label: m.month, value: m.compliancePct, color: slaColor(m.compliancePct) })), '%');
+        renderHBarPanel(charts, 'Compliance by Priority', 'Critical tickets have the tightest deadline',
+          r.byPriority.filter(p => p.total).map(p => ({ label: p.priority, value: p.compliancePct, color: slaColor(p.compliancePct) })), '%');
+        container.innerHTML = `
+          <p><strong>${o.total}</strong> tickets in scope · <strong>${o.met}</strong> met SLA · <strong>${o.breached}</strong> breached (${o.breachPct}%)</p>
+          <h3 style="margin:14px 0 6px;">Technician SLA performance</h3>
+          <table class="tickets-table"><thead><tr><th>Technician</th><th>Tickets</th><th>Breached</th><th>Compliance</th><th>Avg response (assigned → accepted)</th><th>Avg travel (accepted → arrived)</th><th>Avg repair (start → complete)</th><th>Time paused</th></tr></thead><tbody>
+          ${r.technicians.length ? r.technicians.map(t => `<tr><td>${esc(t.fullName)}</td><td>${t.tickets}</td><td>${t.breached}</td><td style="color:${slaColor(t.compliancePct)};font-weight:600;">${t.compliancePct}%</td><td>${fmtMins(t.avgResponseMins)}</td><td>${fmtMins(t.avgTravelMins)}</td><td>${fmtMins(t.avgRepairMins)}</td><td>${fmtMins(t.pausedMins||0)}</td></tr>`).join('') : '<tr><td colspan="8" style="text-align:center;color:#999;">No assigned tickets in this period.</td></tr>'}
+          </tbody></table>
+          <h3 style="margin:18px 0 6px;">Monthly compliance</h3>
+          <table class="tickets-table"><thead><tr><th>Month</th><th>Tickets</th><th>Breached</th><th>Compliance</th></tr></thead><tbody>
+          ${r.monthly.map(m => `<tr><td>${esc(m.month)}</td><td>${m.total}</td><td>${m.breached}</td><td style="color:${slaColor(m.compliancePct)};font-weight:600;">${m.compliancePct}%</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:#999;">No data.</td></tr>'}
+          </tbody></table>
+          <p style="margin-top:10px;color:#64748b;font-size:12px;">Milestone times come from the technician recording each step on the ticket. Averages only include tickets where both steps were recorded. Paused time is excluded from SLA deadlines.</p>`;
+      } catch (e) {
+        console.error('SLA report:', e);
+        container.innerHTML = '<p class="chart-empty">Could not load the SLA report.</p>';
+      }
+    }
+
     function generateReport(type) {
       const results = document.getElementById('reportResults');
       const container = document.getElementById('reportTableContainer');
@@ -388,6 +432,7 @@
       results.style.display = 'block';
       window._lastReport = type;
       document.getElementById('reportPeriod').textContent = periodLabel();
+      if (type === 'sla') { renderSlaReport(); results.scrollIntoView({ behavior:'smooth' }); return; }
       renderChartsFor(type);
 
       const inc = getFilteredIncidents();
@@ -488,7 +533,7 @@
       const inc = getFilteredIncidents();
       if (!inc.length) { alert('No data to export.'); return; }
 
-      const headers = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Resolved'];
+      const headers = ['Ticket No','Description','Category','Location','Priority','Status','Assigned To','Date Logged','Date Assigned','Date Accepted','Date Arrived','Repair Started','Date Resolved','Date Closed','SLA Breached'];
       const rows = inc.map(i => [
         i.ticket_number,
         `"${String(i.description).replace(/^[=+\-@]/,"'$&").replace(/"/g,'""')}"`,
@@ -497,8 +542,8 @@
         i.priority,
         i.status,
         i.assigned_user?.full_name||'Unassigned',
-        formatDate(i.date_logged),
-        formatDate(i.date_resolved)
+        formatDateTime(i.date_logged), formatDateTime(i.date_assigned), formatDateTime(i.date_accepted), formatDateTime(i.date_arrived), formatDateTime(i.date_repair_started),
+        formatDateTime(i.date_resolved), formatDateTime(i.date_closed), i.sla_breached ? 'Yes' : 'No'
       ]);
 
       const csv = ['"' + periodLabel().replace(/"/g,'') + '"', headers.join(','), ...rows.map(r=>r.join(','))].join('\n');

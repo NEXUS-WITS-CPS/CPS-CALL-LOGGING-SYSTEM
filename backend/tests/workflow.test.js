@@ -94,6 +94,21 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('PATCH',`/incidents/${tp}/sla-resume`,TE,{}); check('technician resumes SLA',r.s===200&&incP.sla_paused_at===null);
  check('resume extends the deadline by the paused time',new Date(incP.sla_deadline).getTime()-dl0>=2*3600*1000-5000&&incP.sla_paused_total_mins>=119,String(incP.sla_paused_total_mins));
  check('resume is audited',T.audit_trail.some(a=>a.action_description.startsWith('SLA Resumed')));
+ // SLA milestones: accepted -> arrived -> repair started
+ r=await call('PATCH',`/incidents/${tp}/progress`,T5,{step:'accepted'}); check('other technician cannot record progress (403)',r.s===403);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'bogus'}); check('unknown progress step rejected (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'arrived'}); check('cannot arrive before accepting (409)',r.s===409);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'accepted'}); check('technician accepts the job',r.s===200&&!!incP.date_accepted);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'accepted'}); check('cannot accept twice (409)',r.s===409);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'arrived'}); check('technician records arrival',r.s===200&&!!incP.date_arrived);
+ r=await call('PATCH',`/incidents/${tp}/progress`,TE,{step:'repair_started'}); check('technician starts repair',r.s===200&&!!incP.date_repair_started);
+ check('milestones are audited',T.audit_trail.filter(a=>a.action_description.startsWith('Work Progress')).length>=3);
+ r=await call('GET',`/incidents/${tp}`,A); { const k=(r.j.timeline||[]).filter(x=>x.at).map(x=>x.key);
+   check('ticket timeline lists logged, assigned, accepted, arrived, repair started',['logged','assigned','accepted','arrived','repair_started'].every(x=>k.includes(x)),k.join(',')); }
+ r=await call('PATCH',`/incidents/${tp}/assign`,A,{assignTo:5,assignmentNotes:'Technician unavailable today'}); check('re-assign clears the new assignee\'s milestones',r.s===200&&incP.date_accepted===null&&incP.date_arrived===null&&incP.date_repair_started===null);
+ r=await call('GET','/reports/sla-performance',TE); check('technician cannot view SLA report (403)',r.s===403);
+ r=await call('GET','/reports/sla-performance',A); check('admin gets SLA compliance report',r.s===200&&r.j.overall.total>0&&Array.isArray(r.j.monthly)&&Array.isArray(r.j.technicians),r.s);
+ check('SLA report success + breach = 100%',r.j.overall.successPct+r.j.overall.breachPct===100,JSON.stringify(r.j.overall));
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();
