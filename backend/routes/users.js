@@ -38,7 +38,7 @@ router.get('/technicians', requireRole('admin','officer'), async (req, res) => {
     const { data: counts } = await supabase
       .from('incidents')
       .select('assigned_to')
-      .in('status', ['open','in_progress','escalated']);
+      .in('status', ['in_progress','escalated']);   // cancelled, closed, resolved and unassigned tickets never count
 
     const workload = {};
     (counts || []).forEach(i => {
@@ -62,6 +62,7 @@ router.get('/technicians', requireRole('admin','officer'), async (req, res) => {
 // PATCH /api/users/:userId/deactivate — admin only
 router.patch('/:userId/deactivate', requireRole('admin'), async (req, res) => {
   try {
+    if (String(req.params.userId) === String(req.user.userId)) return res.status(400).json({ error: 'You cannot deactivate your own account.' });
     const { data, error } = await supabase
       .from('users')
       .update({ is_active: false })
@@ -72,6 +73,33 @@ router.patch('/:userId/deactivate', requireRole('admin'), async (req, res) => {
     res.json({ message: `User ${data.full_name} deactivated.`, user: data });
   } catch (err) {
     res.status(500).json({ error: 'Failed to deactivate user.' });
+  }
+});
+
+// PATCH /api/users/:userId/activate — admin only
+router.patch('/:userId/activate', requireRole('admin'), async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users').update({ is_active: true })
+      .eq('user_id', req.params.userId).select('user_id, full_name, email, role, is_active').single();
+    if (error || !data) return res.status(404).json({ error: 'User not found.' });
+    res.json({ message: `User ${data.full_name} reactivated.`, user: data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reactivate user.' });
+  }
+});
+
+// PATCH /api/users/:userId/password — admin sets a new (temporary) password
+router.patch('/:userId/password', requireRole('admin'), async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || String(password).length < 8) return res.status(400).json({ error: 'The password must be at least 8 characters.' });
+    const hash = await require('bcryptjs').hash(String(password), 10);
+    const { data, error } = await supabase.from('users').update({ password_hash: hash })
+      .eq('user_id', req.params.userId).select('user_id, full_name').single();
+    if (error || !data) return res.status(404).json({ error: 'User not found.' });
+    res.json({ message: `Password reset for ${data.full_name}.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password.' });
   }
 });
 

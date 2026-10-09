@@ -44,6 +44,7 @@ class Q {
     const o={...r};
     if(this.t==='audit_trail') o.performer=u(r.performed_by);
     if(this.t==='incidents'){ o.logged_user=u(r.logged_by); o.assigned_user=u(r.assigned_to); o.assets=tables.assets.find(a=>a.asset_id===r.asset_id)||null; }
+    if(this.t==='maintenance_schedules') o.assets=tables.assets.find(a=>a.asset_id===r.asset_id)||null;
     if(this.t==='spare_parts_used') o.recorder=u(r.recorded_by);
     if(this.t==='asset_movements') o.performer=u(r.performed_by);
     return o;

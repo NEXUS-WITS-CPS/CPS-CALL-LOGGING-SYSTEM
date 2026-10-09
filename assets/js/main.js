@@ -102,7 +102,7 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 const roleAccess = {
-  admin: ['dashboard.html','management.html','assign-incident.html','escalate-incident.html','track-incident.html','assets.html','maintenance.html','reports.html'],
+  admin: ['dashboard.html','management.html','assign-incident.html','escalate-incident.html','track-incident.html','assets.html','maintenance.html','users.html','reports.html'],
   officer:    ['officer-dashboard.html','log-incident.html','track-incident.html'],
   technician: ['technician-dashboard.html','my-jobs.html','resolve-incident.html','escalate-incident.html','track-incident.html','assets.html','maintenance.html']
 };
@@ -116,6 +116,7 @@ const roleSidebar = {
     <li><a href="track-incident.html">🔍 Track Incident</a></li>
     <li><a href="assets.html">🧰 Equipment</a></li>
     <li><a href="maintenance.html">🛠️ Maintenance</a></li>
+    <li><a href="users.html">👥 Users</a></li>
     <li><a href="reports.html">📊 Reports</a></li>
   </ul>`,
   officer: `<ul>

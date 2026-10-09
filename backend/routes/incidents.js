@@ -32,6 +32,8 @@ async function generateTicketNumber() {
   return `CLS-${year}-${String(nextNum).padStart(3, '0')}`;
 }
 
+// Categories that are safety-critical by nature get a tighter SLA even when the logger picks a low priority
+const CATEGORY_TIER = { 'fire / safety': 'critical', 'medical emergency': 'critical', 'security threat': 'high' };
 const PRIORITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };   // lower = more urgent
 
 function calcSLADeadline(priority, dateLogged) {
@@ -114,7 +116,11 @@ router.post('/', requireRole('admin', 'officer'), async (req, res) => {
       if (a.status === 'decommissioned') return res.status(409).json({ error: `${a.asset_tag} is decommissioned and cannot have new tickets.` });
       asset = a;
     }
-    const slaTier = asset && PRIORITY_RANK[asset.criticality] < PRIORITY_RANK[priority] ? asset.criticality : priority;
+    const { data: cat } = await supabase.from('categories').select('category_name').eq('category_id', parseInt(categoryId)).single();
+    const catTier = cat ? CATEGORY_TIER[String(cat.category_name).trim().toLowerCase()] : undefined;
+    let slaTier = priority, tierReason = '';
+    if (asset && PRIORITY_RANK[asset.criticality] < PRIORITY_RANK[slaTier]) { slaTier = asset.criticality; tierReason = `equipment ${asset.asset_tag} criticality`; }
+    if (catTier && PRIORITY_RANK[catTier] < PRIORITY_RANK[slaTier]) { slaTier = catTier; tierReason = `${cat.category_name} category`; }
 
     const now = new Date().toISOString();
     const slaDeadline = calcSLADeadline(slaTier, now);
@@ -144,7 +150,11 @@ router.post('/', requireRole('admin', 'officer'), async (req, res) => {
       'Ticket Created — Incident logged via CPS Call Logging System', null, `status: open, priority: ${priority}`);
     if (asset) {
       await writeAudit(incident.incident_id, req.user.userId,
-        `Equipment linked — ${asset.asset_tag} (${asset.name}), criticality ${asset.criticality}${slaTier !== priority ? `; SLA set to the ${slaTier} tier` : ''}`, null, null);
+        `Equipment linked — ${asset.asset_tag} (${asset.name}), criticality ${asset.criticality}`, null, null);
+    }
+    if (slaTier !== priority) {
+      await writeAudit(incident.incident_id, req.user.userId,
+        `SLA tier tightened to ${slaTier} (${SLA_HOURS[slaTier]} h) because of the ${tierReason}`, null, null);
     }
 
     const admins = await activeUserIds(['admin']);

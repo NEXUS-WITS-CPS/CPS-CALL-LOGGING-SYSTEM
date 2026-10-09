@@ -159,6 +159,30 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('GET','/maintenance',A); check('next due moves forward by the interval',r.j.schedules[0].state==='ok'&&r.j.schedules[0].interval_days===90);
  r=await call('GET','/users/technicians',A); check('assign dropdown lists technicians only',r.s===200&&r.j.technicians.every(t=>t.role==='technician'));
  incA.status='cancelled';
+ // ===== USER MANAGEMENT, CATEGORY SLA TIERS, MAINTENANCE TICKETS =====
+ r=await call('POST','/auth/register',A,{fullName:'Zo',email:'zo@wits.ac.za',password:'pass1234',role:'technician'}); check('register needs a real name (400)',r.s===400);
+ r=await call('POST','/auth/register',A,{fullName:'Zola Dube',email:'not-an-email',password:'pass1234',role:'technician'}); check('register needs a valid email (400)',r.s===400);
+ r=await call('POST','/auth/register',A,{fullName:'Zola Dube',email:'zola@wits.ac.za',password:'short',role:'technician'}); check('register needs an 8+ character password (400)',r.s===400);
+ r=await call('PATCH','/users/1/deactivate',A,{}); check('admin cannot deactivate themselves (400)',r.s===400);
+ await call('POST','/auth/register',A,{fullName:'Temp Person',email:'tmp@wits.ac.za',password:'pass1234',role:'technician'});
+ { const u=T.users.find(x=>x.email==='tmp@wits.ac.za'); await call('PATCH',`/users/${u.user_id}/deactivate`,A,{});
+   r=await call('PATCH',`/users/${u.user_id}/activate`,O,{}); check('non-admin cannot reactivate a user (403)',r.s===403);
+   r=await call('PATCH',`/users/${u.user_id}/activate`,A,{}); check('admin reactivates a user',r.s===200&&u.is_active===true);
+   r=await call('PATCH',`/users/${u.user_id}/password`,A,{password:'abc'}); check('password reset needs 8+ characters (400)',r.s===400);
+   r=await call('PATCH',`/users/${u.user_id}/password`,A,{password:'Temp-pass-99'}); check('admin resets a password',r.s===200&&await bcrypt.compare('Temp-pass-99',u.password_hash)); }
+ T.categories.push({category_id:77,category_name:'Fire / Safety'});
+ r=await call('POST','/incidents',O,{...good,priority:'low',categoryId:'77'}); { const x=T.incidents.find(i=>i.ticket_number===r.j.ticketNumber);
+   check('safety-critical category tightens a low-priority SLA to 2 hours',Math.round((new Date(x.sla_deadline)-new Date(x.date_logged))/3600000)===2);
+   check('SLA tier change is audited',T.audit_trail.some(a=>a.incident_id===x.incident_id&&a.action_description.startsWith('SLA tier tightened')));
+   x.status='cancelled'; }
+ T.locations.push({location_id:2,location_name:'Main Gate'}); if(!T.categories.find(c=>/infra/i.test(c.category_name))) T.categories.push({category_id:78,category_name:'Infrastructure'});
+ { const before=T.incidents.length;
+   const sch=T.maintenance_schedules.find(x=>x.schedule_id===sId); sch.next_due='2020-01-01';
+   const n=await require('../lib/maintenance').runMaintenanceCheck(true);
+   check('due maintenance raises a ticket',n===1&&T.incidents.length===before+1&&T.incidents[T.incidents.length-1].description.startsWith('Preventive maintenance due'),String(n));
+   const n2=await require('../lib/maintenance').runMaintenanceCheck(true);
+   check('same maintenance is not raised twice while its ticket is live',n2===0&&T.incidents.length===before+1);
+   T.incidents[T.incidents.length-1].status='cancelled'; sch.next_due='2030-01-01'; }
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();

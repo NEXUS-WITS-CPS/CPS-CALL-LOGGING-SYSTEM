@@ -98,6 +98,10 @@ router.post('/register', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required.' });
     }
 
+    if (String(fullName).trim().length < 3) return res.status(400).json({ error: 'Enter the person\'s full name.' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) return res.status(400).json({ error: 'Enter a valid email address.' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'The password must be at least 8 characters.' });
+
     const validRoles = ['admin','officer','technician','caller'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });

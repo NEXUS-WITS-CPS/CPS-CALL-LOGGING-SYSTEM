@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Users</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+  <section class="page-layout">
+    <aside class="sidebar"><nav class="sidebar-nav"></nav></aside>
+    <main class="main-content">
+      <header class="page-header"><h1>Users</h1><p>One named account per person, so every action in the audit trail is traceable to an individual</p></header>
+      <p class="success-message" id="successMessage"></p>
+      <section class="filter-card"><section class="form-row"><div class="form-group"><button class="btn-primary" onclick="document.getElementById('userModal').showModal()">+ Add User</button></div></section></section>
+      <section class="table-section">
+        <header class="table-header"><h2>All Users</h2><span class="badge-count" id="userCount">Loading…</span></header>
+        <table class="tickets-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="userBody"><tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">Loading…</td></tr></tbody></table>
+      </section>
+    </main>
+  </section>
+  <dialog id="userModal" class="modal"><section class="modal-content">
+    <header class="modal-header"><h2>Add User</h2><button class="modal-close" onclick="document.getElementById('userModal').close()">✕</button></header>
+    <form onsubmit="handleAddUser(event)">
+      <div class="form-group"><label>Full name <span class="required">*</span></label><input id="uName" placeholder="e.g. Thabo Mokoena" /></div>
+      <div class="form-group"><label>Email <span class="required">*</span></label><input id="uEmail" type="email" placeholder="name@wits.ac.za" /></div>
+      <div class="form-row"><div class="form-group"><label>Role <span class="required">*</span></label><select id="uRole"><option value="technician">Technician</option><option value="officer">Officer</option><option value="admin">Admin</option></select></div>
+        <div class="form-group"><label>Temporary password <span class="required">*</span></label><input id="uPass" type="text" autocomplete="off" placeholder="min 8 characters" /></div></div>
+      <small class="field-hint">Share the temporary password with the person privately and ask them to keep it safe.</small>
+      <p id="userError" style="color:red;font-size:13px;min-height:18px;"></p>
+      <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('userModal').close()">Cancel</button><button type="submit" class="btn-primary">Create User</button></section>
+    </form></section></dialog>
+  <dialog id="pwModal" class="modal"><section class="modal-content">
+    <header class="modal-header"><h2>Reset Password</h2><button class="modal-close" onclick="document.getElementById('pwModal').close()">✕</button></header>
+    <section class="modal-ticket-info"><p id="pwWho"></p></section>
+    <form onsubmit="handlePw(event)"><div class="form-group"><label>New temporary password <span class="required">*</span></label><input id="pwNew" type="text" autocomplete="off" placeholder="min 8 characters" /></div>
+      <p id="pwError" style="color:red;font-size:13px;min-height:18px;"></p>
+      <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('pwModal').close()">Cancel</button><button type="submit" class="btn-primary">Reset</button></section></form></section></dialog>
+  <script src="../assets/js/main.js"></script>
+  <script>checkAccess();</script>
+  <script>
+    const meU = getUser(); let pwId = null;
+    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
+    async function loadUsers() {
+      const d = await apiFetch('/users'); const list = d.users || [];
+      document.getElementById('userCount').textContent = `${list.filter(u=>u.is_active).length} active · ${list.length} total`;
+      document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(u.role)}</td>
+        <td><span class="badge ${u.is_active?'low':'cancelled'}">${u.is_active?'Active':'Deactivated'}</span></td>
+        <td>${u.is_active ? (u.user_id===meU.userId ? '<small>(you)</small>' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
+          <button class="btn-assign" onclick="openPw(${u.user_id},${q(u.full_name)})">Reset password</button></td></tr>`).join('');
+    }
+    window.pageRefresh = loadUsers;
+    async function setActive(id, on) { try { const d = await apiFetch(`/users/${id}/${on?'activate':'deactivate'}`, { method:'PATCH', body:'{}' }); toast(d.message); loadUsers(); } catch(e) { alert(e.message); } }
+    function openPw(id, name) { pwId = id; document.getElementById('pwWho').textContent = name; document.getElementById('pwModal').showModal(); }
+    async function handlePw(e) { e.preventDefault(); try { const d = await apiFetch(`/users/${pwId}/password`, { method:'PATCH', body: JSON.stringify({ password: pwNew.value }) }); document.getElementById('pwModal').close(); pwNew.value=''; toast(d.message); } catch(ex) { document.getElementById('pwError').textContent = ex.message; } }
+    async function handleAddUser(e) {
+      e.preventDefault(); const err = document.getElementById('userError'); err.textContent='';
+      try { const d = await apiFetch('/auth/register', { method:'POST', body: JSON.stringify({ fullName:uName.value.trim(), email:uEmail.value.trim(), password:uPass.value, role:uRole.value }) });
+        document.getElementById('userModal').close(); uName.value=uEmail.value=uPass.value=''; toast(d.message); loadUsers(); }
+      catch(ex) { err.textContent = ex.message; }
+    }
+    loadUsers();
+  </script>
+</body>
+</html>

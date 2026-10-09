@@ -18,6 +18,7 @@ const notificationRoutes = require('./routes/notifications');
 const assetRoutes       = require('./routes/assets');
 const maintenanceRoutes = require('./routes/maintenance');
 const { runSlaCheck }    = require('./lib/sla');
+const { runMaintenanceCheck } = require('./lib/maintenance');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -107,6 +108,8 @@ app.use((err, req, res, next) => {
 // Automatic escalation (UC6): check for SLA breaches every minute
 // (dashboards and ticket lists also trigger a check, so it still works if a free host sleeps)
 setInterval(() => { runSlaCheck(true); }, 60 * 1000).unref();
+setInterval(() => { runMaintenanceCheck(true); }, 60 * 60 * 1000).unref();   // raise tickets for due preventive maintenance
+setTimeout(() => { runMaintenanceCheck(true); }, 30 * 1000).unref();
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Wits CPS API running on port ${PORT}`);
