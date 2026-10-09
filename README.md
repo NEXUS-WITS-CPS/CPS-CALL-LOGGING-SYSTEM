@@ -18,14 +18,8 @@ Cancel Incident: an admin can cancel any ticket that isn't already closed/cancel
 
 Deferred to Construction 2: email/SMS notifications, update details/attachments, user-management and system-table screens, profile/password change, client-hosted deployment.
 
-## Demo Credentials
-Passwords are stored as bcrypt hashes in the database (run `sql/1-set-passwords.sql` once to set them).
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@wits.ac.za | admin123 |
-| Officer | officer@wits.ac.za | officer123 |
-| Technician | tech@wits.ac.za | tech123 |
+## Accounts
+There are no shared demo accounts. The administrator signs in with their own account, adds people on the Users page (one at a time or by bulk import) or approves access requests from the login page. Everyone must choose their own password at first sign-in.
 
 ## Deploying the backend (Render, free tier)
 1. Supabase SQL Editor: run `sql/1-set-passwords.sql`.
