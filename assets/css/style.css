@@ -1436,3 +1436,16 @@ body {
 .sla-timeline .pending .tl-label, .sla-timeline .pending .tl-time { color:#94a3b8; font-weight:400; }
 .sla-timeline .tl-time { color:#475569; }
 .sla-timeline .tl-gap { margin-left:auto; color:#64748b; }
+
+/* Print / Save as PDF — keep colours, drop the app chrome */
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  @page { size: A4 landscape; margin: 12mm; }
+  .navbar, .sidebar, .filter-card, .reports-grid, .export-section, .btn-report, .btn-logout, .modal { display: none !important; }
+  .page-layout { display: block !important; }
+  .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+  .table-section, .chart-card, .accountability { box-shadow: none !important; break-inside: avoid; }
+  .tickets-table tr, .hbar-row { break-inside: avoid; }
+  .tickets-table thead { display: table-header-group; }
+  body, .dashboard-page { background: #fff !important; }
+}
