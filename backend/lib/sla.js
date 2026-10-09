@@ -32,7 +32,7 @@ async function runSlaCheck(force = false) {
       .is('sla_paused_at', null)          // a paused ticket's clock is stopped
       .lt('sla_deadline', nowIso);
     if (error) throw error;
-    if (!overdue || !overdue.length) return 0;
+    if (!overdue || !overdue.length) { await runSlaWarnings(nowMs); return 0; }
 
     const actor = await getSystemActor();
     const admins = await activeUserIds(['admin']);
@@ -65,10 +65,38 @@ async function runSlaCheck(force = false) {
       await notify(t.incident_id, [...admins, t.assigned_to], 'sla_breach',
         `Ticket ${t.ticket_number} breached its SLA and was escalated automatically.`);
     }
+    await runSlaWarnings(nowMs);
   } catch (e) {
     console.error('SLA check failed:', e.message);
   }
   return escalated;
+}
+
+// Early warning: tell the admins and the assignee when a ticket has used 75% / 90% of its SLA,
+// once per threshold per ticket (the notification itself is the "already warned" marker).
+const WARN_LEVELS = [{ pct: 90, type: 'sla_warning_90', word: '90%' }, { pct: 75, type: 'sla_warning_75', word: '75%' }];
+async function runSlaWarnings(nowMs) {
+  const { data: active } = await supabase.from('incidents')
+    .select('incident_id, ticket_number, priority, assigned_to, date_logged, sla_deadline')
+    .in('status', ['open', 'in_progress'])
+    .eq('sla_breached', false)
+    .is('sla_paused_at', null);
+  const list = (active || []).filter(t => new Date(t.sla_deadline) > nowMs);
+  if (!list.length) return;
+  const admins = await activeUserIds(['admin']);
+  for (const t of list) {
+    const total = new Date(t.sla_deadline) - new Date(t.date_logged);
+    if (total <= 0) continue;
+    const used = ((nowMs - new Date(t.date_logged)) / total) * 100;
+    const level = WARN_LEVELS.find(l => used >= l.pct);
+    if (!level) continue;
+    const { data: already } = await supabase.from('notifications').select('notification_id')
+      .eq('incident_id', t.incident_id).eq('notification_type', level.type).limit(1);
+    if (already && already.length) continue;
+    const minsLeft = Math.max(1, Math.round((new Date(t.sla_deadline) - nowMs) / 60000));
+    await notify(t.incident_id, [...admins, t.assigned_to], level.type,
+      `Ticket ${t.ticket_number} (${t.priority}) has used ${level.word} of its SLA — about ${minsLeft >= 60 ? Math.floor(minsLeft / 60) + 'h ' + (minsLeft % 60) + 'm' : minsLeft + 'm'} left.`);
+  }
 }
 
 // The deadline a ticket is really working to: while paused, the clock is stopped,

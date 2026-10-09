@@ -109,6 +109,19 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('GET','/reports/sla-performance',TE); check('technician cannot view SLA report (403)',r.s===403);
  r=await call('GET','/reports/sla-performance',A); check('admin gets SLA compliance report',r.s===200&&r.j.overall.total>0&&Array.isArray(r.j.monthly)&&Array.isArray(r.j.technicians),r.s);
  check('SLA report success + breach = 100%',r.j.overall.successPct+r.j.overall.breachPct===100,JSON.stringify(r.j.overall));
+ // SLA early warnings
+ r=await call('POST','/incidents',O,{...good,priority:'high'}); const tw=r.j.ticketNumber; const incW=T.incidents.find(i=>i.ticket_number===tw);
+ incW.date_logged=new Date(Date.now()-3.2*3600*1000).toISOString(); incW.sla_deadline=new Date(Date.now()+0.8*3600*1000).toISOString();   // 80% used
+ await require('../lib/sla').runSlaCheck(true);
+ check('75% SLA warning sent to admins',T.notifications.some(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_75'&&n.recipient_id===1));
+ check('no 90% warning at 80% used',!T.notifications.some(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_90'));
+ const nBefore=T.notifications.filter(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_75').length;
+ await require('../lib/sla').runSlaCheck(true);
+ check('same warning is not sent twice',T.notifications.filter(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_75').length===nBefore);
+ incW.sla_deadline=new Date(Date.now()+0.2*3600*1000).toISOString();   // 95% used
+ await require('../lib/sla').runSlaCheck(true);
+ check('90% SLA warning sent when threshold crossed',T.notifications.some(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_90'));
+ incW.status='cancelled';
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();

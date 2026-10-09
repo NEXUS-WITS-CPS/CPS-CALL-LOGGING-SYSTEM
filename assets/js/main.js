@@ -427,6 +427,24 @@ async function resumeSla(tn) {
   } catch(err) { alert(err.message||'Failed to resume SLA.'); }
 }
 
+// Live SLA countdown shown under the status badge of active tickets
+function slaCountdown(i) {
+  if (!['open','in_progress'].includes(i.status) || !i.sla_deadline) return '';
+  if (i.sla_paused_at) return '<small class="sla-left paused">⏸ clock stopped</small>';
+  const total = new Date(i.sla_deadline) - toDate(i.date_logged);
+  return `<small class="sla-left" data-deadline="${esc(i.sla_deadline)}" data-total="${total > 0 ? total : 0}"></small>`;
+}
+function tickSlaCountdowns() {
+  document.querySelectorAll('.sla-left[data-deadline]').forEach(el => {
+    const left = Math.round((new Date(el.dataset.deadline) - Date.now()) / 60000);
+    const total = parseInt(el.dataset.total) || 0;
+    const used = total ? ((total - left * 60000) / total) * 100 : 100;
+    el.textContent = left <= 0 ? `Overdue by ${formatElapsed(-left || 1)}` : `${formatElapsed(left)} left`;
+    el.className = 'sla-left ' + (left <= 0 ? 'breached' : used >= 90 ? 'danger' : used >= 75 ? 'warn' : 'ok');
+  });
+}
+setInterval(tickSlaCountdowns, 30000);
+
 function renderTable(incidents, role) {
   const tbody = document.querySelector('.tickets-table tbody');
   if (!tbody) return;
@@ -459,12 +477,13 @@ if (i.status === 'open' && role==='admin') {
       <td>${esc(i.description.substring(0,40))}${i.description.length>40?'...':''}</td>
       <td>${esc(loc)}</td>
       <td><span class="badge ${i.priority}">${pri}</span></td>
-      <td><span class="badge ${stCl}">${st}</span>${pausedBadge(i)}</td>
+      <td><span class="badge ${stCl}">${st}</span>${pausedBadge(i)}<br>${slaCountdown(i)}</td>
       <td>${esc(asgn)}${i.reassign_count>0?` <span class="badge-reassigned" title="Assigned ${i.reassign_count+1} times">Re-assigned${i.reassign_count>1?' ×'+i.reassign_count:''}</span>`:''}</td>
       <td>${date}</td>
       <td>${action}</td>
     </tr>`;
   }).join('');
+  tickSlaCountdowns();
 }
 
 // ── UC1 LOG INCIDENT ──
