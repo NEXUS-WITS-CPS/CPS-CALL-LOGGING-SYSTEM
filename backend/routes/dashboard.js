@@ -13,7 +13,7 @@ router.use(authMiddleware);
 router.get('/summary', async (req, res) => {
   try {
     await runSlaCheck();   // escalate overdue tickets first so the numbers are current
-    let query = supabase.from('incidents').select('status, priority, sla_breached, date_logged, date_resolved');
+    let query = supabase.from('incidents').select('status, priority, sla_breached, date_logged, date_resolved, reassign_count');
 
     // Role-based filtering
     if (req.user.role === 'caller') {
@@ -31,6 +31,13 @@ router.get('/summary', async (req, res) => {
     const resolved    = incidents.filter(i => ['resolved','pending_confirmation'].includes(i.status)).length;
     const closed      = incidents.filter(i => i.status === 'closed').length;
     const escalated   = incidents.filter(i => i.status === 'escalated').length;
+    // Every status gets a bucket so the dashboard cards add up to the total:
+    // open + inProgress + escalated + pendingConfirmation + resolvedClosed + cancelled = total
+    const pendingConfirmation = incidents.filter(i => i.status === 'pending_confirmation').length;
+    const resolvedClosed      = incidents.filter(i => ['resolved','closed'].includes(i.status)).length;
+    const cancelled           = incidents.filter(i => i.status === 'cancelled').length;
+    // Re-assigned is NOT a status: it counts still-active tickets that have been assigned more than once
+    const reassigned          = incidents.filter(i => i.reassign_count > 0 && ['open','in_progress','escalated'].includes(i.status)).length;
     const slaBreached = incidents.filter(i => i.sla_breached).length;
 
     // Avg resolution time in hours
@@ -88,6 +95,7 @@ router.get('/summary', async (req, res) => {
       summary: {
         total, open, inProgress, resolved,
         closed, escalated, slaBreached,
+        pendingConfirmation, resolvedClosed, cancelled, reassigned,
         avgResolutionHrs: Math.round(avgResolutionHrs * 10) / 10,
         slaCompliance
       },
@@ -109,7 +117,7 @@ router.get('/recent', async (req, res) => {
     let query = supabase
       .from('incidents')
       .select(`
-        incident_id, ticket_number, priority, status, logged_by, assigned_to,
+        incident_id, ticket_number, priority, status, logged_by, assigned_to, reassign_count,
         description, caller_name, date_logged, sla_deadline, sla_breached,
         categories(category_name),
         locations(location_name),

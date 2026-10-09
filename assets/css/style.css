@@ -344,6 +344,39 @@ body {
   border-left-color: #27ae60;
 }
 
+.stat-card.escalated {
+  border-left-color: #8e44ad;
+}
+
+.stat-card.pending {
+  border-left-color: #2980b9;
+}
+
+.stat-card.cancelled {
+  border-left-color: #95a5a6;
+}
+
+/* Re-assigned is a subset of the active tickets, not a separate status, so it is drawn dashed */
+.stat-card.reassigned {
+  border-left-color: #e67e22;
+  border-style: dashed;
+  border-width: 1px 1px 1px 4px;
+  border-color: #e67e22;
+  background: #fffaf3;
+}
+
+.badge-reassigned {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  white-space: nowrap;
+}
+
 .stat-card h3 {
   font-size: 13px;
   color: #666;

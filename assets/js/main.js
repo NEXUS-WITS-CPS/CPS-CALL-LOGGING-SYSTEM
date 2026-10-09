@@ -300,7 +300,12 @@ async function loadAdminDashboard() {
     if (nums[0]) nums[0].textContent = s.summary.total;
     if (nums[1]) nums[1].textContent = s.summary.open;
     if (nums[2]) nums[2].textContent = s.summary.inProgress;
-    if (nums[3]) nums[3].textContent = s.summary.resolved + s.summary.closed;
+    // order matches the cards in dashboard.html; the first seven add up to Total
+    if (nums[3]) nums[3].textContent = s.summary.escalated;
+    if (nums[4]) nums[4].textContent = s.summary.pendingConfirmation;
+    if (nums[5]) nums[5].textContent = s.summary.resolvedClosed;
+    if (nums[6]) nums[6].textContent = s.summary.cancelled;
+    if (nums[7]) nums[7].textContent = s.summary.reassigned;
     renderTable(r.incidents || [], 'admin');
   } catch(e) { console.error('Admin dashboard:', e); }
 }
@@ -379,7 +384,7 @@ if (i.status === 'open' && role==='admin') {
       <td>${esc(loc)}</td>
       <td><span class="badge ${i.priority}">${pri}</span></td>
       <td><span class="badge ${stCl}">${st}</span></td>
-      <td>${esc(asgn)}</td>
+      <td>${esc(asgn)}${i.reassign_count>0?` <span class="badge-reassigned" title="Assigned ${i.reassign_count+1} times">Re-assigned${i.reassign_count>1?' ×'+i.reassign_count:''}</span>`:''}</td>
       <td>${date}</td>
       <td>${action}</td>
     </tr>`;

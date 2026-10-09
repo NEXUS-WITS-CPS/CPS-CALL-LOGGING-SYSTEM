@@ -51,7 +51,7 @@ async function writeAudit(incidentId, userId, action, oldVal, newVal) {
 async function loadIncident(ticketNumber) {
   const { data } = await supabase
     .from('incidents')
-    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline, date_assigned')
+    .select('incident_id, ticket_number, status, priority, caller_id, logged_by, assigned_to, sla_deadline, date_assigned, reassign_count')
     .eq('ticket_number', String(ticketNumber).toUpperCase())
     .single();
   return data || null;
@@ -158,7 +158,7 @@ router.get('/', async (req, res) => {
         incident_id, ticket_number, priority, status,
         description, caller_name, caller_contact, logged_by,
         date_logged, date_assigned, date_resolved, date_closed,
-        sla_deadline, sla_breached, assigned_to,
+        sla_deadline, sla_breached, assigned_to, reassign_count,
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(user_id, full_name)
@@ -303,7 +303,9 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
     const now = new Date().toISOString();
     const { data: updated, error } = await supabase
       .from('incidents')
-      .update({ assigned_to: assignee.user_id, status: 'in_progress', priority: priority || incident.priority, date_assigned: now })
+      .update({ assigned_to: assignee.user_id, status: 'in_progress', priority: priority || incident.priority, date_assigned: now,
+                // a ticket that was assigned before (re-assigned, or reopened after a rejected resolution) counts as a re-assignment
+                reassign_count: (incident.reassign_count || 0) + (incident.date_assigned ? 1 : 0) })
       .eq('ticket_number', incident.ticket_number).select().single();
     if (error) throw error;
 

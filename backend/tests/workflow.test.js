@@ -67,11 +67,16 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  check('manual escalation does NOT falsely flag SLA breach',inc2.sla_breached===false);
  r=await call('PATCH',`/incidents/${t2}/escalate`,TE,{escalationReason:'safety',escalateTo:'facilities',escalationNotes:'Needs facilities urgently'}); check('cannot escalate twice (409)',r.s===409);
  r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:5}); check('escalated ticket can be re-assigned',r.s===200&&inc2.status==='in_progress'&&inc2.assigned_to===5);
+ check('re-assignment increments reassign_count',inc2.reassign_count>=1,String(inc2.reassign_count));
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();
  await require('../lib/sla').runSlaCheck(true);   // same check the server runs every minute
- r=await call('GET','/dashboard/summary',A); 
+ r=await call('GET','/dashboard/summary',A);
+ { const m=r.j.summary; const parts=m.open+m.inProgress+m.escalated+m.pendingConfirmation+m.resolvedClosed+m.cancelled;
+   check('dashboard status cards add up to total (no unaccounted tickets)',r.s===200&&parts===m.total,JSON.stringify(m));
+   const expectRe=T.incidents.filter(i=>i.reassign_count>0&&['open','in_progress','escalated'].includes(i.status)).length;
+   check('dashboard re-assigned count matches tickets assigned more than once',m.reassigned===expectRe&&m.reassigned>=1,JSON.stringify(m)); }
  check('SLA breach auto-escalates ticket (UC6 auto path)',inc3.status==='escalated'&&inc3.sla_breached===true,JSON.stringify(inc3));
  check('auto-escalation recorded in escalations + audit',T.escalations.some(e=>e.incident_id===inc3.incident_id&&e.escalation_reason==='sla_breach')&&T.audit_trail.some(a=>a.incident_id===inc3.incident_id&&a.action_description.startsWith('Automatic Escalation')));
  check('admins notified of SLA breach',T.notifications.some(n=>n.recipient_id===1&&n.notification_type==='sla_breach'));
