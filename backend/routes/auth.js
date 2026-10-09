@@ -174,7 +174,7 @@ router.post('/request-access', async (req, res) => {
 
     const { data: u, error } = await supabase.from('users').insert({
       full_name: name, email: mail, password_hash: await bcrypt.hash(String(password), 10),
-      role: 'caller', is_active: false, account_status: 'pending', requested_at: new Date().toISOString()
+      role: 'officer', is_active: false, account_status: 'pending', requested_at: new Date().toISOString()
     }).select('user_id').single();
     if (error) throw error;
     await logUserAudit(u.user_id, 'requested', null, `Access requested by ${name} (${mail})`);

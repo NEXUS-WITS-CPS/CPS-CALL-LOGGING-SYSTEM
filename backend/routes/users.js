@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { logUserAudit } = require('../lib/userAudit');
 
-const ROLES = ['admin','officer','technician'];   // roles that can be granted (the old 'caller' role has no pages and is not offered)
+const ROLES = ['admin','officer','technician'];   // roles that can be granted (the legacy 'caller' role is not offered)
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -85,6 +85,8 @@ router.patch('/:userId/deactivate', requireRole('admin'), async (req, res) => {
 // PATCH /api/users/:userId/activate — admin only
 router.patch('/:userId/activate', requireRole('admin'), async (req, res) => {
   try {
+    const { data: cur } = await supabase.from('users').select('account_status').eq('user_id', req.params.userId).single();
+    if (cur && cur.account_status === 'pending') return res.status(400).json({ error: 'This is an access request. Approve it and choose a role instead.' });
     const { data, error } = await supabase.from('users').update({ is_active: true, account_status: 'active' })
       .eq('user_id', req.params.userId).select('user_id, full_name, email, role, is_active').single();
     if (error || !data) return res.status(404).json({ error: 'User not found.' });

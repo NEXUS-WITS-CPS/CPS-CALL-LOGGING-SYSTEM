@@ -61,9 +61,7 @@ router.get('/summary', async (req, res) => {
     let query = supabase.from('incidents').select('status, priority, sla_breached, date_logged, date_resolved, reassign_count');
 
     // Role-based filtering
-    if (req.user.role === 'caller') {
-      query = query.eq('caller_id', req.user.userId);
-    } else if (req.user.role === 'technician') {
+    if (req.user.role === 'technician') {
       query = query.eq('assigned_to', req.user.userId);
     }
 
@@ -172,9 +170,7 @@ router.get('/recent', async (req, res) => {
       .order('date_logged', { ascending: false })
       .limit(limit);
 
-    if (req.user.role === 'caller') {
-      query = query.eq('caller_id', req.user.userId);
-    } else if (req.user.role === 'technician') {
+    if (req.user.role === 'technician') {
       query = query.eq('assigned_to', req.user.userId);
     }
 

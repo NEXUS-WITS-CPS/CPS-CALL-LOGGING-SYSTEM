@@ -62,11 +62,10 @@ async function loadIncident(ticketNumber) {
 }
 
 // ── HELPER: who may see / act on a ticket ──
-//  admin & officer: all tickets · technician: only tickets assigned to them · caller: only their own
+//  admin & officer: all tickets · technician: only tickets assigned to them
 function canView(user, inc) {
   if (user.role === 'admin' || user.role === 'officer') return true;
   if (user.role === 'technician') return inc.assigned_to === user.userId;
-  if (user.role === 'caller') return inc.caller_id === user.userId;
   return false;
 }
 // resolve / escalate: admin on any ticket; everyone else only on tickets assigned to them
@@ -193,8 +192,7 @@ router.get('/', async (req, res) => {
       `)
       .order('date_logged', { ascending: false });
 
-    if (req.user.role === 'caller') query = query.eq('caller_id', req.user.userId);
-    else if (req.user.role === 'technician') query = query.eq('assigned_to', req.user.userId);
+    if (req.user.role === 'technician') query = query.eq('assigned_to', req.user.userId);
     else if (req.user.role === 'officer') query = query.eq('logged_by', req.user.userId);
 
     if (status && status !== 'all') query = query.eq('status', status);
@@ -236,8 +234,7 @@ router.get('/status/pending-confirmation', async (req, res) => {
       .eq('status', 'pending_confirmation')
       .order('date_resolved', { ascending: false });
 
-    if (req.user.role === 'caller') query = query.eq('caller_id', req.user.userId);
-    else if (req.user.role === 'technician') query = query.eq('assigned_to', req.user.userId);
+    if (req.user.role === 'technician') query = query.eq('assigned_to', req.user.userId);
     const { data, error } = await query;
     if (error) throw error;
     res.json({ incidents: data || [] });

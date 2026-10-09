@@ -258,10 +258,11 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'sam@gmail.com',password:'longenough1'}); check('access request rejects non-Wits email (400)',r.s===400);
  r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'sam@wits.ac.za',password:'short'}); check('access request rejects short password (400)',r.s===400);
  r=await call('POST','/auth/request-access',null,{fullName:'Sam Newcomer',email:'Sam@Wits.ac.za',password:'longenough1',role:'admin'}); const sam=T.users.find(u=>u.email==='sam@wits.ac.za');
- check('access request creates a pending account with no privileges (even if a role is sent)',r.s===201&&sam&&sam.account_status==='pending'&&sam.is_active===false&&sam.role==='caller',JSON.stringify(r.j));
+ check('access request creates a pending account with no privileges (even if a role is sent)',r.s===201&&sam&&sam.account_status==='pending'&&sam.is_active===false&&sam.role==='officer',JSON.stringify(r.j));
  r=await call('POST','/auth/request-access',null,{fullName:'Sam Again',email:'sam@wits.ac.za',password:'longenough1'}); check('duplicate request refused (409)',r.s===409);
  r=await call('POST','/auth/login',null,{email:'sam@wits.ac.za',password:'wrongpass'}); check('pending user with wrong password sees generic error (401)',r.s===401);
  r=await call('POST','/auth/login',null,{email:'sam@wits.ac.za',password:'longenough1'}); check('pending user cannot sign in (403, awaiting approval)',r.s===403&&/waiting/i.test(r.j.error||''),JSON.stringify(r.j));
+ r=await call('PATCH',`/users/${sam.user_id}/activate`,A,{}); check('a pending request cannot be switched on without approval (400)',r.s===400&&sam.is_active===false);
  r=await call('PATCH',`/users/${sam.user_id}/approve`,O,{role:'officer'}); check('non-admin cannot approve a request (403)',r.s===403);
  r=await call('PATCH',`/users/${sam.user_id}/approve`,A,{role:'superuser'}); check('approval needs a valid role (400)',r.s===400);
  r=await call('PATCH',`/users/${sam.user_id}/approve`,A,{role:'technician'}); check('admin approves and assigns the role',r.s===200&&sam.role==='technician'&&sam.is_active===true&&sam.account_status==='active'&&sam.reviewed_by===1,JSON.stringify(r.j));
