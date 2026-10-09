@@ -1413,3 +1413,12 @@ body {
 .assign-context .assign-warn { color:#92400e; background:#fef3c7; border-radius:6px; padding:6px 8px; }
 .assign-context ul { margin:6px 0 0 18px; padding:0; color:#475569; }
 .assign-context summary { cursor:pointer; color:#003b5c; font-weight:600; margin-top:6px; }
+
+/* Accountability panel (track incident) */
+.accountability { margin:18px 0; padding:14px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+.accountability h3 { margin:0 0 8px; font-size:15px; color:#003b5c; }
+.accountability-list { list-style:none; margin:0; padding:0; }
+.accountability-list li { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; padding:6px 0; border-bottom:1px dashed #e2e8f0; font-size:13px; }
+.accountability-list li:last-child { border-bottom:0; }
+.acc-label { min-width:190px; color:#64748b; }
+.acc-time { margin-left:auto; color:#94a3b8; font-size:12px; }

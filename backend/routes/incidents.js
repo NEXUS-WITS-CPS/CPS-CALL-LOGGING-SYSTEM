@@ -260,9 +260,29 @@ router.get('/:ticketNumber', async (req, res) => {
     const hoursOpen = (now - new Date(incident.date_logged)) / 3600000;
     const slaStatus = incident.sla_breached || hoursOpen >= limit ? 'breached' : hoursOpen >= limit * 0.75 ? 'approaching' : 'within';
 
+    // Accountability chain: who did what, and when, taken from the audit trail (latest event of each kind)
+    const trail = auditTrail || [];
+    const latest = re => [...trail].reverse().find(a => re.test(a.action_description));
+    const link = (key, label, re, nameOverride) => {
+      const a = latest(re);
+      return a ? { key, label, name: nameOverride || a.performer?.full_name || 'System', at: a.action_time } : null;
+    };
+    const assignEvt = latest(/^Ticket Assigned/);
+    const accountability = [
+      { key: 'logged', label: 'Logged by', name: incident.logged_user?.full_name || 'Unknown', at: incident.date_logged },
+      assignEvt && { key: 'assigned', label: 'Assigned / re-assigned by', name: assignEvt.performer?.full_name || 'System', at: assignEvt.action_time,
+                     detail: incident.assigned_user ? `to ${incident.assigned_user.full_name}` : undefined },
+      link('escalated', 'Escalated by', /^Incident Escalated/),
+      link('resolved', 'Resolved by', /^Incident Resolved/),
+      link('rejected', 'Resolution rejected by', /^Resolution Rejected/),
+      link('closed', 'Confirmed & closed by', /^Ticket Confirmed and Closed/),
+      link('cancelled', 'Cancelled by', /^Ticket Cancelled/)
+    ].filter(Boolean);
+
     res.json({
       incident,
-      auditTrail: auditTrail || [],
+      auditTrail: trail,
+      accountability,
       resolutionNote: resNotes?.[0] || null,
       sla: {
         status: slaStatus,

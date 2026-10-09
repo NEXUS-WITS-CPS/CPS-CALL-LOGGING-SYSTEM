@@ -54,6 +54,9 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  await call('PATCH',`/incidents/${t1}/assign`,A,{assignTo:3});
  await call('PATCH',`/incidents/${t1}/resolve`,TE,{resolutionNotes:'Replaced the gate motor properly',timeSpent:'60'});
  r=await call('PATCH',`/incidents/${t1}/confirm`,O,{action:'accept',satisfactionRating:5}); check('logging officer accepts -> closed',r.s===200&&T.incidents[0].status==='closed'&&!!T.incidents[0].date_closed);
+ r=await call('GET',`/incidents/${t1}`,A); const acc=(r.j.accountability||[]).map(c=>c.key);
+ check('closed ticket shows who logged, assigned, resolved and closed it',['logged','assigned','resolved','closed'].every(k=>acc.includes(k)),acc.join(','));
+ check('accountability names a person for every step',(r.j.accountability||[]).every(c=>c.name&&c.name!=='System'),JSON.stringify((r.j.accountability||[]).map(c=>c.name)));
  r=await call('PATCH',`/incidents/${t1}/confirm`,O,{action:'accept'}); check('cannot confirm closed ticket (409)',r.s===409);
  r=await call('PATCH',`/incidents/${t1}/assign`,A,{assignTo:3}); check('cannot assign closed ticket (409)',r.s===409);
  r=await call('PATCH',`/incidents/${t1}/escalate`,A,{escalationReason:'safety',escalateTo:'facilities',escalationNotes:'Needs facilities urgently'}); check('cannot escalate closed ticket (409)',r.s===409);

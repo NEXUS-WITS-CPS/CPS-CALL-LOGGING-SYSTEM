@@ -36,9 +36,17 @@ class Q {
     if (this.opts.head) return {data:null,error:null,count:m.length};
     return this.finish(m,m.length);
   }
+  // minimal stand-ins for the PostgREST joins the routes use
+  join(r){
+    const u=id=>{ const x=tables.users.find(y=>y.user_id===id); return x?{user_id:x.user_id,full_name:x.full_name}:null; };
+    const o={...r};
+    if(this.t==='audit_trail') o.performer=u(r.performed_by);
+    if(this.t==='incidents'){ o.logged_user=u(r.logged_by); o.assigned_user=u(r.assigned_to); }
+    return o;
+  }
   finish(m,count){
-    if(this.one) return m.length? {data:m[0],error:null}: {data:null,error:{message:'no rows'}};
-    return {data:m.map(r=>({...r})),error:null,count};
+    if(this.one) return m.length? {data:this.join(m[0]),error:null}: {data:null,error:{message:'no rows'}};
+    return {data:m.map(r=>this.join(r)),error:null,count};
   }
 }
 module.exports = { from:t=>new Q(t), tables };

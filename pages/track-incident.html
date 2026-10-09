@@ -87,6 +87,10 @@
             <span class="ticket-info-value" id="detailAssignedTo">—</span>
           </article>
         </section>
+        <section class="accountability">
+          <h3>Who handled this ticket</h3>
+          <ul class="accountability-list" id="accountabilityList"></ul>
+        </section>
         <section class="audit-trail">
           <h3>Audit Trail</h3>
           <ul class="audit-list" id="auditList">
@@ -219,6 +223,7 @@
         const stEl  = document.getElementById('detailStatus');
         if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
         if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
+        renderAccountability(data.accountability);
         const auditList = document.getElementById('auditList');
         if (data.auditTrail?.length) {
           auditList.innerHTML = data.auditTrail.map(a => `

@@ -1015,6 +1015,15 @@ async function handleEscalateIncident(event) {
 }
 
 // ── UC2 TRACK ──
+// "Who handled this ticket" — one line per responsible person, from the server's accountability chain
+function renderAccountability(chain) {
+  const el = document.getElementById('accountabilityList'); if (!el) return;
+  el.innerHTML = (chain || []).map(c => `
+    <li><span class="acc-label">${esc(c.label)}</span>
+        <strong>${esc(c.name)}</strong>${c.detail ? ` <small>${esc(c.detail)}</small>` : ''}
+        <span class="acc-time">${esc(formatDateTime(c.at))}</span></li>`).join('') || '<li style="color:#999;">No activity recorded.</li>';
+}
+
 async function handleSearch(event) {
   event.preventDefault();
   const tn=document.getElementById('searchTicket').value.trim().toUpperCase();
@@ -1032,6 +1041,7 @@ async function handleSearch(event) {
     const stEl=document.getElementById('detailStatus');
     if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
     if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
+    renderAccountability(data.accountability);
     const auditList=document.querySelector('.audit-list');
     if (auditList && data.auditTrail?.length) {
       auditList.innerHTML=data.auditTrail.map(a=>`
