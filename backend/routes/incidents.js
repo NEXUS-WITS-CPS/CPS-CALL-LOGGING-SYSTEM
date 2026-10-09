@@ -32,6 +32,8 @@ async function generateTicketNumber() {
   return `CLS-${year}-${String(nextNum).padStart(3, '0')}`;
 }
 
+const PRIORITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };   // lower = more urgent
+
 function calcSLADeadline(priority, dateLogged) {
   const d = new Date(dateLogged);
   d.setHours(d.getHours() + (SLA_HOURS[priority] || 24));
@@ -80,7 +82,7 @@ function wrongStatus(res, inc, allowed, verb) {
 // =====================================================
 router.post('/', requireRole('admin', 'officer'), async (req, res) => {
   try {
-    const { callerContact, categoryId, locationId, priority, description, additionalNotes } = req.body;
+    const { callerContact, categoryId, locationId, priority, description, additionalNotes, assetId } = req.body;
     // The caller/reporter is always the signed-in officer logging the ticket —
     // never trust a client-supplied name for this. The UI reflects this by
     // making the "Reported By" field read-only and auto-filled; this is the
@@ -103,8 +105,19 @@ router.post('/', requireRole('admin', 'officer'), async (req, res) => {
       return res.status(400).json({ error: 'Contact number may only contain digits, spaces, + ( ) and -, and must be 7–20 characters.' });
     }
 
+    // Optional equipment link: the SLA follows the more urgent of the ticket priority and the equipment's criticality
+    let asset = null;
+    if (assetId !== undefined && assetId !== null && assetId !== '') {
+      if (!Number.isInteger(parseInt(assetId))) return res.status(400).json({ error: 'Invalid equipment selected.' });
+      const { data: a } = await supabase.from('assets').select('asset_id, asset_tag, name, criticality, status').eq('asset_id', parseInt(assetId)).single();
+      if (!a) return res.status(404).json({ error: 'Selected equipment was not found.' });
+      if (a.status === 'decommissioned') return res.status(409).json({ error: `${a.asset_tag} is decommissioned and cannot have new tickets.` });
+      asset = a;
+    }
+    const slaTier = asset && PRIORITY_RANK[asset.criticality] < PRIORITY_RANK[priority] ? asset.criticality : priority;
+
     const now = new Date().toISOString();
-    const slaDeadline = calcSLADeadline(priority, now);
+    const slaDeadline = calcSLADeadline(slaTier, now);
 
     // Retry if two officers log at the same moment and get the same ticket number
     let incident = null, lastError = null;
@@ -117,7 +130,7 @@ router.post('/', requireRole('admin', 'officer'), async (req, res) => {
           category_id: parseInt(categoryId), location_id: parseInt(locationId),
           priority, status: 'open', description: description.trim(),
           caller_name: callerName.trim(), caller_contact: callerContact.trim(),
-          additional_notes: additionalNotes || null,
+          additional_notes: additionalNotes || null, asset_id: asset ? asset.asset_id : null,
           date_logged: now, sla_deadline: slaDeadline, sla_breached: false
         })
         .select().single();
@@ -129,6 +142,10 @@ router.post('/', requireRole('admin', 'officer'), async (req, res) => {
 
     await writeAudit(incident.incident_id, req.user.userId,
       'Ticket Created — Incident logged via CPS Call Logging System', null, `status: open, priority: ${priority}`);
+    if (asset) {
+      await writeAudit(incident.incident_id, req.user.userId,
+        `Equipment linked — ${asset.asset_tag} (${asset.name}), criticality ${asset.criticality}${slaTier !== priority ? `; SLA set to the ${slaTier} tier` : ''}`, null, null);
+    }
 
     const admins = await activeUserIds(['admin']);
     await notify(incident.incident_id, admins, 'ticket_logged',
@@ -159,7 +176,7 @@ router.get('/', async (req, res) => {
         description, caller_name, caller_contact, logged_by,
         date_logged, date_assigned, date_resolved, date_closed,
         sla_deadline, sla_breached, assigned_to, reassign_count, sla_paused_at, sla_pause_reason,
-        date_accepted, date_arrived, date_repair_started,
+        date_accepted, date_arrived, date_repair_started, asset_id, assets(asset_tag, name, criticality),
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(user_id, full_name)
@@ -179,7 +196,7 @@ router.get('/', async (req, res) => {
     const now = new Date();
     const withSLA = (data || []).map(i => {
       const deadline = effectiveDeadline(i, now);
-      const limitMins = (SLA_HOURS[i.priority] || 24) * 60;
+      const limitMins = Math.max(1, Math.round((new Date(i.sla_deadline) - new Date(i.date_logged)) / 60000)) || (SLA_HOURS[i.priority] || 24) * 60;
       const minsLeft = Math.round((deadline - now) / 60000);
       const pct = Math.min(Math.round(((limitMins - minsLeft) / limitMins) * 100), 100);
       return { ...i, slaStatus: i.sla_paused_at ? 'paused' : i.sla_breached || minsLeft <= 0 ? 'breached' : pct >= 75 ? 'approaching' : 'within' };
@@ -231,7 +248,8 @@ router.get('/:ticketNumber', async (req, res) => {
         categories(category_name),
         locations(location_name),
         assigned_user:users!incidents_assigned_to_fkey(user_id, full_name, email),
-        logged_user:users!incidents_logged_by_fkey(user_id, full_name)
+        logged_user:users!incidents_logged_by_fkey(user_id, full_name),
+        assets(asset_id, asset_tag, name, serial_number, criticality, status)
       `)
       .eq('ticket_number', req.params.ticketNumber.toUpperCase())
       .single();
@@ -248,6 +266,12 @@ router.get('/:ticketNumber', async (req, res) => {
       .select('audit_id, action_description, old_value, new_value, action_time, performer:users!audit_trail_performed_by_fkey(full_name)')
       .eq('incident_id', incident.incident_id)
       .order('action_time', { ascending: true });
+
+    const { data: parts } = await supabase
+      .from('spare_parts_used')
+      .select('part_id, part_name, part_number, quantity, notes, recorded_at, recorder:users!spare_parts_used_recorded_by_fkey(full_name)')
+      .eq('incident_id', incident.incident_id)
+      .order('recorded_at', { ascending: true });
 
     const { data: resNotes } = await supabase
       .from('resolution_notes')
@@ -299,6 +323,7 @@ router.get('/:ticketNumber', async (req, res) => {
       auditTrail: trail,
       accountability,
       timeline,
+      parts: parts || [],
       resolutionNote: resNotes?.[0] || null,
       sla: {
         status: slaStatus,
@@ -332,8 +357,8 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
       .from('users').select('user_id, full_name, role, is_active')
       .eq('user_id', parseInt(assignTo)).single();
     if (!assignee || !assignee.is_active) return res.status(404).json({ error: 'Officer not found.' });
-    if (!['technician', 'officer'].includes(assignee.role)) {
-      return res.status(400).json({ error: 'Tickets can only be assigned to a technician or officer.' });
+    if (assignee.role !== 'technician') {
+      return res.status(400).json({ error: 'Tickets can only be assigned to a technician.' });
     }
 
     // Re-assigning a ticket that is already with someone: must name a different person and give a reason
@@ -369,6 +394,37 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
   } catch (err) {
     console.error('Assign error:', err);
     res.status(500).json({ error: err.message || 'Failed to assign incident.' });
+  }
+});
+
+// =====================================================
+// SPARE PARTS USED   POST /:ticketNumber/parts
+// The assigned technician (or an admin) records parts fitted while the ticket is active.
+// =====================================================
+router.post('/:ticketNumber/parts', requireRole('admin', 'technician'), async (req, res) => {
+  try {
+    const { partName, partNumber, quantity, notes } = req.body;
+    const qty = parseInt(quantity ?? 1);
+    if (!partName || String(partName).trim().length < 2) return res.status(400).json({ error: 'Enter the name of the part used.' });
+    if (!Number.isInteger(qty) || qty < 1 || qty > 999) return res.status(400).json({ error: 'Quantity must be a whole number between 1 and 999.' });
+
+    const incident = await loadIncident(req.params.ticketNumber);
+    if (!incident) return res.status(404).json({ error: 'Ticket not found.' });
+    if (!isAssigneeOrAdmin(req.user, incident)) return res.status(403).json({ error: 'Only the technician assigned to this ticket (or an admin) can record parts.' });
+    const allowed = ['in_progress', 'escalated', 'pending_confirmation'];
+    if (!allowed.includes(incident.status)) return wrongStatus(res, incident, allowed, 'record parts on');
+
+    const { data, error } = await supabase.from('spare_parts_used').insert({
+      incident_id: incident.incident_id, part_name: String(partName).trim(), part_number: partNumber ? String(partNumber).trim() : null,
+      quantity: qty, notes: notes ? String(notes).trim() : null, recorded_by: req.user.userId, recorded_at: new Date().toISOString()
+    }).select().single();
+    if (error) throw error;
+    await writeAudit(incident.incident_id, req.user.userId,
+      `Spare part used — ${qty} × ${String(partName).trim()}${partNumber ? ` (${String(partNumber).trim()})` : ''} recorded by ${req.user.fullName}`, null, null);
+    res.status(201).json({ message: `${qty} × ${String(partName).trim()} recorded.`, part: data });
+  } catch (err) {
+    console.error('Parts error:', err);
+    res.status(500).json({ error: err.message || 'Failed to record part.' });
   }
 });
 

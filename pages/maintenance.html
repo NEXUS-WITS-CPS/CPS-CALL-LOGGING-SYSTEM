@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Maintenance</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+  <section class="page-layout">
+    <aside class="sidebar"><nav class="sidebar-nav"></nav></aside>
+    <main class="main-content">
+
+      <header class="page-header"><h1>Preventive Maintenance</h1><p>Recurring services per piece of equipment, with due and overdue tracking</p></header>
+      <p class="success-message" id="successMessage"></p>
+      <section class="filter-card"><section class="form-row"><div class="form-group" id="addSchedWrap" style="display:none;"><button class="btn-primary" onclick="openAddSchedule()">+ New Schedule</button></div></section></section>
+      <section class="table-section">
+        <header class="table-header"><h2>Schedules</h2><span class="badge-count" id="schedCount">Loading…</span></header>
+        <table class="tickets-table"><thead><tr><th>Equipment</th><th>Service</th><th>Every</th><th>Last done</th><th>Next due</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="schedBody"><tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Loading…</td></tr></tbody></table>
+      </section>
+    </main>
+  </section>
+
+  <dialog id="doneModal" class="modal"><section class="modal-content">
+    <header class="modal-header"><h2>Record Maintenance Done</h2><button class="modal-close" onclick="document.getElementById('doneModal').close()">✕</button></header>
+    <section class="modal-ticket-info"><p id="doneTitle"></p></section>
+    <form onsubmit="handleDone(event)"><div class="form-group"><label>What was done?</label><textarea id="doneNotes" rows="3" placeholder="optional"></textarea></div>
+      <p id="doneError" style="color:red;font-size:13px;min-height:18px;"></p>
+      <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('doneModal').close()">Cancel</button><button type="submit" class="btn-primary">Mark Done</button></section></form></section></dialog>
+  <dialog id="schedModal" class="modal"><section class="modal-content">
+    <header class="modal-header"><h2>New Maintenance Schedule</h2><button class="modal-close" onclick="document.getElementById('schedModal').close()">✕</button></header>
+    <form onsubmit="handleAddSchedule(event)">
+      <div class="form-group"><label>Equipment <span class="required">*</span></label><select id="sAsset"></select></div>
+      <div class="form-group"><label>Service title <span class="required">*</span></label><input id="sTitle" placeholder="e.g. Quarterly boom gate service" /></div>
+      <div class="form-row"><div class="form-group"><label>Repeat every (days) <span class="required">*</span></label><input type="number" id="sInterval" min="1" value="90" /></div>
+        <div class="form-group"><label>First due <span class="required">*</span></label><input type="date" id="sDue" /></div></div>
+      <p id="schedError" style="color:red;font-size:13px;min-height:18px;"></p>
+      <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('schedModal').close()">Cancel</button><button type="submit" class="btn-primary">Create</button></section></form></section></dialog>
+  <script src="../assets/js/main.js"></script>
+  <script>checkAccess();</script>
+  <script>
+
+    const me = getUser(); const isAdmin = me && me.role === 'admin'; let doneId = null;
+    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
+    async function loadSchedules() {
+      const d = await apiFetch('/maintenance'); const list = d.schedules || [];
+      document.getElementById('schedCount').textContent = `${list.filter(s=>s.state==='overdue'&&s.is_active).length} overdue · ${list.length} total`;
+      document.getElementById('schedBody').innerHTML = list.length ? list.map(s => {
+        const badge = !s.is_active ? '<span class="badge cancelled">Off</span>' : s.state==='overdue' ? `<span class="badge critical">Overdue ${-s.daysUntilDue}d</span>` : s.state==='due_soon' ? `<span class="badge high">Due in ${s.daysUntilDue}d</span>` : `<span class="badge low">On track</span>`;
+        return `<tr><td><strong>${esc(s.assets?.asset_tag||'')}</strong><br><small>${esc(s.assets?.name||'')}</small></td><td>${esc(s.title)}</td><td>${s.interval_days} days</td><td>${esc(s.last_done||'—')}</td><td>${esc(s.next_due)}</td><td>${badge}</td>
+          <td>${s.is_active?`<button class="btn-assign" onclick="openDone(${s.schedule_id},${q(s.title)})">✔ Mark done</button>`:''}${isAdmin?` <button class="btn-assign" onclick="toggleSched(${s.schedule_id},${!s.is_active})">${s.is_active?'Switch off':'Switch on'}</button>`:''}</td></tr>`; }).join('')
+        : '<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No schedules yet.</td></tr>';
+    }
+    window.pageRefresh = loadSchedules;
+    function openDone(id,title){ doneId=id; document.getElementById('doneTitle').textContent=title; document.getElementById('doneModal').showModal(); }
+    async function handleDone(e){ e.preventDefault(); try{ const d=await apiFetch(`/maintenance/${doneId}/complete`,{method:'POST',body:JSON.stringify({notes:doneNotes.value})}); document.getElementById('doneModal').close(); doneNotes.value=''; toast(d.message); loadSchedules(); }catch(ex){ document.getElementById('doneError').textContent=ex.message; } }
+    async function toggleSched(id,on){ try{ const d=await apiFetch(`/maintenance/${id}`,{method:'PATCH',body:JSON.stringify({isActive:on})}); toast(d.message); loadSchedules(); }catch(ex){ alert(ex.message); } }
+    async function openAddSchedule(){ const a=await apiFetch('/assets'); sAsset.innerHTML=(a.assets||[]).filter(x=>x.status!=='decommissioned').map(x=>`<option value="${esc(x.asset_id)}">${esc(x.asset_tag)} — ${esc(x.name)}</option>`).join(''); document.getElementById('schedModal').showModal(); }
+    async function handleAddSchedule(e){ e.preventDefault(); try{ const d=await apiFetch('/maintenance',{method:'POST',body:JSON.stringify({assetId:sAsset.value,title:sTitle.value,intervalDays:sInterval.value,nextDue:sDue.value})}); document.getElementById('schedModal').close(); toast(d.message); loadSchedules(); }catch(ex){ document.getElementById('schedError').textContent=ex.message; } }
+    if (isAdmin) document.getElementById('addSchedWrap').style.display='block';
+    loadSchedules();
+  </script>
+</body>
+</html>

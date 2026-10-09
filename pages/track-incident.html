@@ -88,6 +88,7 @@
           </article>
         </section>
         <p id="slaNotice" class="sla-notice" style="display:none;"></p>
+        <section class="accountability" id="assetParts" style="display:none;"></section>
         <section class="accountability">
           <h3>SLA timeline</h3>
           <ol class="sla-timeline" id="slaTimeline"></ol>
@@ -228,7 +229,7 @@
         const stEl  = document.getElementById('detailStatus');
         if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
         if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
-        renderAccountability(data.accountability); renderSlaNotice(i, data.sla); renderTimeline(data.timeline);
+        renderAccountability(data.accountability); renderSlaNotice(i, data.sla); renderTimeline(data.timeline); renderAssetParts(data);
         const auditList = document.getElementById('auditList');
         if (data.auditTrail?.length) {
           auditList.innerHTML = data.auditTrail.map(a => `

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | My Jobs</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page mobile-jobs">
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+  <section class="page-layout">
+    <aside class="sidebar"><nav class="sidebar-nav"></nav></aside>
+    <main class="main-content">
+
+      <header class="page-header"><h1>My Jobs</h1><p>Your assigned tickets &mdash; tap a button to update progress from site</p></header>
+      <p class="success-message" id="successMessage"></p>
+      <section id="jobList"><p style="color:#999;">Loading…</p></section>
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+  <script>checkAccess();</script>
+  <script>
+
+    async function loadJobs() {
+      const d = await apiFetch('/incidents'); const me = getUser();
+      const jobs = (d.incidents||[]).filter(i => i.assigned_to === me.userId && ['in_progress','escalated'].includes(i.status));
+      const box = document.getElementById('jobList');
+      if (!jobs.length) { box.innerHTML = '<article class="job-card"><p>No active jobs. 🎉</p></article>'; return; }
+      box.innerHTML = jobs.map(i => `<article class="job-card">
+        <header><strong>${esc(i.ticket_number)}</strong> <span class="badge ${esc(i.priority)}">${esc(i.priority)}</span> <span class="badge ${esc(i.status.replace('_',''))}">${esc(formatStatus(i.status))}</span>${pausedBadge(i)}</header>
+        <p class="job-desc">${esc(i.description)}</p>
+        <p class="job-meta">📍 ${esc(i.locations?.location_name||'—')}${i.assets?` · 🧰 ${esc(i.assets.asset_tag)}`:''}</p>
+        <p>${slaCountdown(i)}</p>
+        <div class="job-actions">${progressButton(i)}${i.status==='in_progress'?slaButton(i):''}${partsButton(i)}
+          <button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(me.fullName)},${q(i.date_assigned||'')})">✅ Resolve</button>
+          <a class="btn-assign" href="track-incident.html?ticket=${encodeURIComponent(i.ticket_number)}">View</a></div></article>`).join('');
+      tickSlaCountdowns();
+    }
+    window.pageRefresh = loadJobs; loadJobs(); setInterval(loadJobs, 60000);
+  </script>
+</body>
+</html>

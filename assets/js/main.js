@@ -32,6 +32,7 @@ function getSuccessEl() {
 }
 // refreshPage(): reload whatever data the current page shows
 function refreshPage() {
+  if (typeof window.pageRefresh === 'function') { window.pageRefresh(); return; }
   const page = window.location.pathname.split('/').pop();
   if (page === 'dashboard.html') loadAdminDashboard();
   else if (page === 'officer-dashboard.html') loadOfficerDashboard();
@@ -101,17 +102,20 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 const roleAccess = {
-  admin: ['dashboard.html','assign-incident.html','escalate-incident.html','track-incident.html','reports.html'],
+  admin: ['dashboard.html','management.html','assign-incident.html','escalate-incident.html','track-incident.html','assets.html','maintenance.html','reports.html'],
   officer:    ['officer-dashboard.html','log-incident.html','track-incident.html'],
-  technician: ['technician-dashboard.html','resolve-incident.html','escalate-incident.html','track-incident.html']
+  technician: ['technician-dashboard.html','my-jobs.html','resolve-incident.html','escalate-incident.html','track-incident.html','assets.html','maintenance.html']
 };
 
 const roleSidebar = {
   admin: `<ul>
     <li><a href="dashboard.html">🏠 Dashboard</a></li>
+    <li><a href="management.html">📈 Operations</a></li>
     <li><a href="assign-incident.html">👤 Assign / Re-assign</a></li>
     <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
     <li><a href="track-incident.html">🔍 Track Incident</a></li>
+    <li><a href="assets.html">🧰 Equipment</a></li>
+    <li><a href="maintenance.html">🛠️ Maintenance</a></li>
     <li><a href="reports.html">📊 Reports</a></li>
   </ul>`,
   officer: `<ul>
@@ -121,9 +125,12 @@ const roleSidebar = {
   </ul>`,
   technician: `<ul>
     <li><a href="technician-dashboard.html">🏠 Dashboard</a></li>
+    <li><a href="my-jobs.html">📱 My Jobs</a></li>
     <li><a href="resolve-incident.html">✅ Resolve Incident</a></li>
     <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
     <li><a href="track-incident.html">🔍 Track Incident</a></li>
+    <li><a href="assets.html">🧰 Equipment</a></li>
+    <li><a href="maintenance.html">🛠️ Maintenance</a></li>
   </ul>`
 };
 
@@ -352,6 +359,51 @@ async function loadTechDashboard() {
   } catch(e) { console.error('Tech dashboard:', e); }
 }
 
+// ── SPARE PARTS ──
+function partsButton(i) { return `<button class="btn-assign" onclick="openPartsModal(${q(i.ticket_number)})">🔩 Parts</button>`; }
+let partsTicket = '';
+function openPartsModal(tn) {
+  partsTicket = tn;
+  if (!document.getElementById('partsModal')) {
+    const m = document.createElement('dialog'); m.id='partsModal'; m.className='modal';
+    m.innerHTML = `<section class="modal-content">
+      <header class="modal-header"><h2>Spare Parts Used</h2><button class="modal-close" onclick="closePartsModal()">✕</button></header>
+      <section class="modal-ticket-info"><p><strong>Ticket:</strong> <span id="partsTicketNumber"></span></p></section>
+      <form id="partsForm" onsubmit="handleAddPart(event)">
+        <div class="form-group"><label for="partName">Part <span class="required">*</span></label><input type="text" id="partName" placeholder="e.g. Boom arm assembly" /></div>
+        <div class="form-row">
+          <div class="form-group"><label for="partNumber">Part number</label><input type="text" id="partNumber" placeholder="optional" /></div>
+          <div class="form-group"><label for="partQty">Quantity <span class="required">*</span></label><input type="number" id="partQty" min="1" max="999" value="1" /></div>
+        </div>
+        <div class="form-group"><label for="partNotes">Notes</label><textarea id="partNotes" rows="2" placeholder="optional"></textarea></div>
+        <p id="partsErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
+        <section class="form-actions"><button type="button" class="btn-secondary" onclick="closePartsModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Record Part</button></section>
+      </form></section>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('partsTicketNumber').textContent = tn;
+  document.getElementById('partsModal').showModal();
+}
+function closePartsModal() { document.getElementById('partsModal').close(); document.getElementById('partsForm')?.reset(); document.getElementById('partsErrorMessage').textContent=''; }
+async function handleAddPart(event) {
+  event.preventDefault();
+  const errEl=document.getElementById('partsErrorMessage'), btn=event.target.querySelector('button[type="submit"]');
+  const partName=document.getElementById('partName').value.trim(), partNumber=document.getElementById('partNumber').value.trim();
+  const quantity=parseInt(document.getElementById('partQty').value), notes=document.getElementById('partNotes').value.trim();
+  errEl.textContent='';
+  if (partName.length < 2) { errEl.textContent='Enter the name of the part used.'; return; }
+  if (!Number.isInteger(quantity) || quantity < 1) { errEl.textContent='Quantity must be at least 1.'; return; }
+  btn.disabled=true; btn.textContent='Saving...';
+  try {
+    const d=await apiFetch(`/incidents/${partsTicket}/parts`, { method:'POST', body:JSON.stringify({ partName, partNumber, quantity, notes }) });
+    closePartsModal();
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    refreshPage();
+  } catch(err) { errEl.textContent=err.message||'Failed to record part.'; }
+  finally { btn.disabled=false; btn.textContent='Record Part'; }
+}
+
 // ── WORK PROGRESS (SLA milestones) ──
 function progressButton(i) {
   const next = !i.date_accepted ? ['accepted','✔ Accept job'] : !i.date_arrived ? ['arrived','📍 Arrived on site'] : !i.date_repair_started ? ['repair_started','🔧 Start repair'] : null;
@@ -461,7 +513,7 @@ function renderTable(incidents, role) {
 if (i.status === 'open' && role==='admin') {
   action = `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
 } else if (['in_progress','escalated'].includes(i.status) && role==='technician') {
-  action = `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${i.status==='in_progress'?slaButton(i):''}</div>`;
+  action = `<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(asgn)},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${partsButton(i)}${i.status==='in_progress'?slaButton(i):''}</div>`;
 } else if (i.status === 'pending_confirmation' && role==='officer' && i.logged_by === (getUser()||{}).userId) {
   action = `
     <div style="display:flex;gap:6px;">
@@ -497,6 +549,15 @@ async function loadLookups() {
       (c.categories||[]).map(x => `<option value="${esc(x.category_id)}">${esc(x.category_name)}</option>`).join('');
     if (loc) loc.innerHTML = '<option value="" disabled selected>Select location</option>' +
       (l.locations||[]).map(x => `<option value="${esc(x.location_id)}">${esc(x.location_name)}</option>`).join('');
+    const assetSel = document.getElementById('assetId');
+    if (assetSel) {
+      try {
+        const a = await apiFetch('/assets');
+        assetSel.innerHTML = '<option value="">Not sure / not equipment-related</option>' +
+          (a.assets||[]).filter(x => x.status !== 'decommissioned').map(x =>
+            `<option value="${esc(x.asset_id)}">${esc(x.asset_tag)} — ${esc(x.name)}${x.serial_number?` (S/N ${esc(x.serial_number)})`:''} · ${esc(x.criticality)}</option>`).join('');
+      } catch(e) { console.error('Assets lookup:', e); }
+    }
   } catch(e) {
     console.error('Lookups:', e);
     const err = document.getElementById('errorMessage');
@@ -559,7 +620,7 @@ async function handleLogIncident(event) {
   }
   btn.textContent='Submitting...'; btn.disabled=true;
   try {
-    const data = await apiFetch('/incidents', { method:'POST', body:JSON.stringify({ callerName, callerContact, categoryId, locationId, priority, description, additionalNotes:notes }) });
+    const data = await apiFetch('/incidents', { method:'POST', body:JSON.stringify({ callerName, callerContact, categoryId, locationId, priority, description, additionalNotes:notes, assetId:(document.getElementById('assetId')||{}).value||undefined }) });
     const ticketEl = document.getElementById('ticketNumber');
     if (ticketEl) ticketEl.textContent = data.ticketNumber;
     successEl.textContent=`Incident successfully logged! Ticket Number: ${data.ticketNumber}`;
@@ -752,7 +813,7 @@ async function loadActiveTickets() {
       <td>${esc(i.assigned_user?.full_name||'Unassigned')}</td>
       <td>${formatDate(i.date_logged)}</td>
       <td><span class="badge inprogress">In Progress</span>${pausedBadge(i)}</td>
-      <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${slaButton(i)}</div></td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-assign" onclick="openResolveModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)},${q(i.assigned_user?.full_name||'Unassigned')},${q(i.date_assigned||'')})">Resolve</button>${progressButton(i)}${partsButton(i)}${slaButton(i)}</div></td>
     </tr>`).join('');
   } catch(e) { console.error('Active tickets:', e); }
 }
@@ -1110,6 +1171,15 @@ async function handleEscalateIncident(event) {
 
 // ── UC2 TRACK ──
 // "Who handled this ticket" — one line per responsible person, from the server's accountability chain
+function renderAssetParts(data) {
+  const el = document.getElementById('assetParts'); if (!el) return;
+  const a = data.incident && data.incident.assets, parts = data.parts || [];
+  if (!a && !parts.length) { el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML = `<h3>Equipment &amp; parts</h3>` +
+    (a ? `<p><strong>Equipment:</strong> ${esc(a.asset_tag)} — ${esc(a.name)}${a.serial_number?` · S/N ${esc(a.serial_number)}`:''} · criticality <strong>${esc(a.criticality)}</strong> · ${esc(String(a.status).replace('_',' '))}</p>` : '') +
+    (parts.length ? `<ul class="parts-list">${parts.map(p => `<li>${esc(p.quantity)} × ${esc(p.part_name)}${p.part_number?` (${esc(p.part_number)})`:''} <small>— ${esc(p.recorder?.full_name||'')} · ${esc(formatDateTime(p.recorded_at))}</small></li>`).join('')}</ul>` : '<p style="color:#94a3b8;">No spare parts recorded.</p>');
+}
 function renderTimeline(tl) {
   const el = document.getElementById('slaTimeline'); if (!el) return;
   el.innerHTML = (tl || []).map(t => `
@@ -1149,7 +1219,7 @@ async function handleSearch(event) {
     const stEl=document.getElementById('detailStatus');
     if (priEl) { priEl.textContent=i.priority.charAt(0).toUpperCase()+i.priority.slice(1); priEl.className=`badge ${i.priority}`; }
     if (stEl)  { stEl.textContent=formatStatus(i.status); stEl.className=`badge ${i.status.replace('_','')}`; }
-    renderAccountability(data.accountability); renderSlaNotice(i, data.sla); renderTimeline(data.timeline);
+    renderAccountability(data.accountability); renderSlaNotice(i, data.sla); renderTimeline(data.timeline); renderAssetParts(data);
     const auditList=document.querySelector('.audit-list');
     if (auditList && data.auditTrail?.length) {
       auditList.innerHTML=data.auditTrail.map(a=>`

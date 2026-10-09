@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wits CPS | Operations</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+</head>
+<body class="dashboard-page">
+  <nav class="navbar">
+    <section class="navbar-left">
+      <img src="../assets/images/wits-logo.jpg" alt="Wits Logo" class="nav-logo" />
+      <span class="nav-title">CPS Call Logging System</span>
+    </section>
+    <section class="navbar-right">
+      <span class="nav-user">Welcome</span>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </section>
+  </nav>
+  <section class="page-layout">
+    <aside class="sidebar"><nav class="sidebar-nav"></nav></aside>
+    <main class="main-content">
+
+      <header class="page-header"><h1>Operations Overview</h1><p>Live view of SLA risk, workload, equipment and maintenance for management</p></header>
+      <section class="stats-grid" id="opsStats"></section>
+      <section class="reports-grid" id="opsPanels" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr));"></section>
+    </main>
+  </section>
+
+  <script src="../assets/js/main.js"></script>
+  <script>checkAccess();</script>
+  <script>
+
+    function mins(m){ const a=Math.abs(m); return a>=60?`${Math.floor(a/60)}h ${a%60}m`:`${a}m`; }
+    const card=(cls,label,n,sub)=>`<article class="stat-card ${cls}"><h3>${label}</h3><p class="stat-number">${n}</p><span class="stat-label">${sub}</span></article>`;
+    const panel=(title,inner)=>`<article class="report-card"><header class="report-card-header"><h3>${title}</h3></header>${inner}</article>`;
+    async function loadOps() {
+      const d = await apiFetch('/dashboard/operations'); const t = d.tickets;
+      document.getElementById('opsStats').innerHTML =
+        card('','Active tickets',t.active,'open, in progress, escalated') + card('escalated','SLA breached',t.breached,'escalated after deadline') +
+        card('pending','Clock paused',t.paused,'waiting on parts / third party') + card('cancelled','Unassigned',t.unassigned,'waiting for the admin');
+      const risk = d.atRisk.length ? d.atRisk.map(r => `<div class="hbar-row"><span class="hbar-label"><a href="track-incident.html?ticket=${encodeURIComponent(r.ticket_number)}">${esc(r.ticket_number)}</a></span><span class="hbar-track"><span class="hbar-fill" style="width:${r.usedPct}%;background:${r.usedPct>=90?'#c0392b':r.usedPct>=75?'#d35400':'#1e8449'}"></span></span><span class="hbar-value">${r.minsLeft>0?mins(r.minsLeft)+' left':'overdue'}</span></div>`).join('') : '<p class="chart-empty">No tickets at risk.</p>';
+      const load = d.workload.length ? `<table class="tickets-table"><thead><tr><th>Technician</th><th>Active</th><th>Paused</th><th>Escalated</th></tr></thead><tbody>${d.workload.map(w=>`<tr><td>${esc(w.fullName)}</td><td>${w.active}</td><td>${w.paused}</td><td>${w.escalated}</td></tr>`).join('')}</tbody></table>` : '<p class="chart-empty">No technicians.</p>';
+      const out = d.equipmentOut.length ? `<ul class="parts-list">${d.equipmentOut.map(a=>`<li><strong>${esc(a.asset_tag)}</strong> — ${esc(a.name)} <span class="badge high">${esc(a.status.replace('_',' '))}</span></li>`).join('')}</ul>` : '<p class="chart-empty">All equipment is in service.</p>';
+      const m = d.maintenance;
+      const maint = `<p><strong style="color:${m.overdue?'#b91c1c':'#166534'};font-size:22px;">${m.overdue}</strong> overdue · <strong style="font-size:22px;">${m.dueSoon}</strong> due in 7 days · ${m.total} active schedules</p><p><a href="maintenance.html">Open maintenance →</a></p>`;
+      const parts = d.topParts.length ? `<ul class="parts-list">${d.topParts.map(p=>`<li>${p.qty} × ${esc(p.name)}</li>`).join('')}</ul>` : '<p class="chart-empty">No parts recorded in the last 30 days.</p>';
+      document.getElementById('opsPanels').innerHTML =
+        panel('⏳ SLA at risk','<p class="chart-sub">Share of the SLA already used</p>'+risk) + panel('👷 Technician workload',load) +
+        panel('🧰 Equipment out of service',out) + panel('🛠️ Preventive maintenance',maint) + panel('🔩 Parts used (30 days)',parts);
+    }
+    window.pageRefresh = loadOps; loadOps(); setInterval(loadOps, 60000);
+  </script>
+</body>
+</html>

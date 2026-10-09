@@ -122,6 +122,43 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  await require('../lib/sla').runSlaCheck(true);
  check('90% SLA warning sent when threshold crossed',T.notifications.some(n=>n.incident_id===incW.incident_id&&n.notification_type==='sla_warning_90'));
  incW.status='cancelled';
+ // ===== ASSETS, SPARE PARTS, MOVEMENTS, MAINTENANCE, CRITICALITY SLA =====
+ r=await call('POST','/assets',O,{assetTag:'cps-boom-9',name:'Test boom gate',criticality:'critical'}); check('officer cannot add equipment (403)',r.s===403);
+ r=await call('POST','/assets',A,{assetTag:'',name:'Test boom gate'}); check('asset tag required (400)',r.s===400);
+ r=await call('POST','/assets',A,{assetTag:'cps-boom-9',name:'Test boom gate',assetType:'bogus'}); check('invalid equipment type rejected (400)',r.s===400);
+ r=await call('POST','/assets',A,{assetTag:'cps-boom-9',serialNumber:'SN-1',name:'Test boom gate',assetType:'boom_gate',criticality:'critical'}); const aId=r.j.asset&&r.j.asset.asset_id; check('admin adds equipment',r.s===201&&r.j.asset.asset_tag==='CPS-BOOM-9');
+ r=await call('GET','/assets?q=sn-1',TE); check('technician can search equipment by serial',r.s===200&&r.j.assets.length===1);
+ r=await call('POST','/incidents',O,{...good,priority:'low',assetId:'abc'}); check('invalid asset id rejected (400)',r.s===400);
+ r=await call('POST','/incidents',O,{...good,priority:'low',assetId:String(aId)}); const ta=r.j.ticketNumber; const incA=T.incidents.find(i=>i.ticket_number===ta);
+ check('ticket links to equipment',r.s===201&&incA.asset_id===aId);
+ check('critical equipment tightens a low-priority SLA to 2 hours',Math.round((new Date(incA.sla_deadline)-new Date(incA.date_logged))/3600000)===2,incA.sla_deadline);
+ r=await call('POST','/incidents',O,{...good,priority:'critical'}); { const x=T.incidents.find(i=>i.ticket_number===r.j.ticketNumber); check('ticket without equipment keeps its priority SLA',Math.round((new Date(x.sla_deadline)-new Date(x.date_logged))/3600000)===2); }
+ await call('PATCH',`/incidents/${ta}/assign`,A,{assignTo:3});
+ r=await call('POST',`/incidents/${ta}/parts`,T5,{partName:'Boom arm',quantity:1}); check('other technician cannot record parts (403)',r.s===403);
+ r=await call('POST',`/incidents/${ta}/parts`,TE,{partName:'',quantity:1}); check('part name required (400)',r.s===400);
+ r=await call('POST',`/incidents/${ta}/parts`,TE,{partName:'Boom arm',quantity:0}); check('part quantity must be at least 1 (400)',r.s===400);
+ r=await call('POST',`/incidents/${ta}/parts`,TE,{partName:'Boom arm',partNumber:'BA-22',quantity:2}); check('technician records spare parts',r.s===201&&T.spare_parts_used.length===1);
+ r=await call('GET',`/incidents/${ta}`,A); check('ticket shows parts used',(r.j.parts||[]).length===1&&r.j.parts[0].part_name==='Boom arm');
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'removed',notes:'Arm snapped, removed for repair'}); check('technician must link movement to a ticket (400)',r.s===400);
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'bogus',notes:'xxxxxx',ticketNumber:ta}); check('invalid movement action rejected (400)',r.s===400);
+ r=await call('POST',`/assets/${aId}/movements`,T5,{action:'removed',notes:'Arm snapped, removed for repair',ticketNumber:ta}); check('technician cannot move equipment on another technician\'s ticket (403)',r.s===403);
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'removed',notes:'Arm snapped, removed for repair',ticketNumber:ta}); check('technician removes equipment',r.s===201&&T.assets.find(a=>a.asset_id===aId).status==='removed');
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'sent_for_repair',notes:'Sent to supplier workshop',expectedReturn:'2026-11-01',ticketNumber:ta}); check('equipment sent for repair',r.s===201&&T.assets.find(a=>a.asset_id===aId).status==='in_repair');
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'replaced',notes:'Fitted a new unit',ticketNumber:ta}); check('replacement needs the new serial (400)',r.s===400);
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'returned',notes:'Repaired and refitted',ticketNumber:ta}); check('equipment returned to service',r.s===201&&T.assets.find(a=>a.asset_id===aId).status==='in_service');
+ r=await call('POST',`/assets/${aId}/movements`,TE,{action:'returned',notes:'Again for no reason',ticketNumber:ta}); check('cannot return equipment already in service (409)',r.s===409);
+ check('equipment movements are audited on the ticket',T.audit_trail.some(a=>a.action_description.includes('CPS-BOOM-9')&&a.action_description.includes('sent for repair')));
+ r=await call('GET',`/assets/${aId}`,A); check('asset history shows tickets and movements',r.s===200&&r.j.tickets.length===1&&r.j.movements.length===3,JSON.stringify(r.j.movements&&r.j.movements.length));
+ r=await call('POST','/maintenance',TE,{assetId:aId,title:'Quarterly service',intervalDays:90,nextDue:'2026-12-01'}); check('technician cannot create maintenance schedules (403)',r.s===403);
+ r=await call('POST','/maintenance',A,{assetId:aId,title:'Quarterly service',intervalDays:0,nextDue:'2026-12-01'}); check('maintenance interval must be positive (400)',r.s===400);
+ r=await call('POST','/maintenance',A,{assetId:aId,title:'Quarterly service',intervalDays:90,nextDue:'2020-01-01'}); const sId=r.j.schedule&&r.j.schedule.schedule_id; check('admin creates a maintenance schedule',r.s===201);
+ r=await call('GET','/maintenance',TE); check('overdue schedule is flagged',r.s===200&&r.j.schedules[0].state==='overdue');
+ r=await call('GET','/dashboard/operations',A); check('operations dashboard counts overdue maintenance',r.s===200&&r.j.maintenance.overdue===1&&Array.isArray(r.j.workload),r.s);
+ r=await call('GET','/dashboard/operations',TE); check('technician cannot open the operations dashboard (403)',r.s===403);
+ r=await call('POST',`/maintenance/${sId}/complete`,TE,{notes:'Greased, tested limit switches'}); check('technician records maintenance done',r.s===200&&T.maintenance_log.length===1);
+ r=await call('GET','/maintenance',A); check('next due moves forward by the interval',r.j.schedules[0].state==='ok'&&r.j.schedules[0].interval_days===90);
+ r=await call('GET','/users/technicians',A); check('assign dropdown lists technicians only',r.s===200&&r.j.technicians.every(t=>t.role==='technician'));
+ incA.status='cancelled';
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);
  inc3.sla_deadline=new Date(Date.now()-3600*1000).toISOString();

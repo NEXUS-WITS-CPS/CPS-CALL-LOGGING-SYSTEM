@@ -29,7 +29,7 @@ router.get('/technicians', requireRole('admin','officer'), async (req, res) => {
     const { data: techs, error } = await supabase
       .from('users')
       .select('user_id, full_name, email, role')
-      .in('role', ['technician','officer'])
+      .eq('role', 'technician')
       .eq('is_active', true)
       .order('full_name');
     if (error) throw error;

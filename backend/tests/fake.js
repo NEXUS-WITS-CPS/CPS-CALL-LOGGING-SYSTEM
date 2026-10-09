@@ -1,6 +1,6 @@
 // Minimal in-memory stand-in for the Supabase client (enough for the routes' queries)
-const tables = { users:[], incidents:[], audit_trail:[], notifications:[], escalations:[], confirmations:[], resolution_notes:[], categories:[], locations:[] };
-const idcol = { users:'user_id', incidents:'incident_id', audit_trail:'audit_id', notifications:'notification_id', escalations:'escalation_id', confirmations:'confirmation_id', resolution_notes:'note_id' };
+const tables = { users:[], incidents:[], audit_trail:[], notifications:[], escalations:[], confirmations:[], resolution_notes:[], categories:[], locations:[], assets:[], spare_parts_used:[], asset_movements:[], maintenance_schedules:[], maintenance_log:[] };
+const idcol = { users:'user_id', incidents:'incident_id', audit_trail:'audit_id', notifications:'notification_id', escalations:'escalation_id', confirmations:'confirmation_id', resolution_notes:'note_id', assets:'asset_id', spare_parts_used:'part_id', asset_movements:'movement_id', maintenance_schedules:'schedule_id', maintenance_log:'log_id' };
 const seq = {};
 class Q {
   constructor(t){ this.t=t; this.f=[]; this.op='select'; this.lim=null; this.ord=null; this.one=false; this.opts={}; this.payload=null; }
@@ -8,6 +8,7 @@ class Q {
   insert(p){ this.op='insert'; this.payload=p; return this; }
   update(p){ this.op='update'; this.payload=p; return this; }
   eq(c,v){ this.f.push(r=>r[c]===v || String(r[c])===String(v)); return this; }
+  neq(c,v){ this.f.push(r=>r[c]!==v); return this; }
   in(c,a){ this.f.push(r=>a.includes(r[c])); return this; }
   is(c,v){ this.f.push(r=>(r[c]??null)===v); return this; }
   lt(c,v){ this.f.push(r=>r[c]!=null && new Date(r[c])<new Date(v)); return this; }
@@ -42,7 +43,9 @@ class Q {
     const u=id=>{ const x=tables.users.find(y=>y.user_id===id); return x?{user_id:x.user_id,full_name:x.full_name}:null; };
     const o={...r};
     if(this.t==='audit_trail') o.performer=u(r.performed_by);
-    if(this.t==='incidents'){ o.logged_user=u(r.logged_by); o.assigned_user=u(r.assigned_to); }
+    if(this.t==='incidents'){ o.logged_user=u(r.logged_by); o.assigned_user=u(r.assigned_to); o.assets=tables.assets.find(a=>a.asset_id===r.asset_id)||null; }
+    if(this.t==='spare_parts_used') o.recorder=u(r.recorded_by);
+    if(this.t==='asset_movements') o.performer=u(r.performed_by);
     return o;
   }
   finish(m,count){

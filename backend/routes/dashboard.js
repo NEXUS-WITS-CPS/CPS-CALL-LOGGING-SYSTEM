@@ -3,11 +3,56 @@
 // =====================================================
 const express  = require('express');
 const supabase = require('../supabaseClient');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runSlaCheck, effectiveDeadline } = require('../lib/sla');
 
 const router = express.Router();
 router.use(authMiddleware);
+
+// GET /api/dashboard/operations — management / operations view (admin)
+router.get('/operations', requireRole('admin'), async (req, res) => {
+  try {
+    await runSlaCheck();
+    const now = new Date();
+    const [{ data: active }, { data: techs }, { data: assets }, { data: sched }, { data: parts }] = await Promise.all([
+      supabase.from('incidents').select('ticket_number, priority, status, description, assigned_to, date_logged, sla_deadline, sla_breached, sla_paused_at, assigned_user:users!incidents_assigned_to_fkey(full_name)').in('status', ['open', 'in_progress', 'escalated']),
+      supabase.from('users').select('user_id, full_name').eq('role', 'technician').eq('is_active', true),
+      supabase.from('assets').select('asset_id, asset_tag, name, status, criticality').neq('status', 'in_service'),
+      supabase.from('maintenance_schedules').select('schedule_id, title, next_due, is_active, assets(asset_tag, name)').eq('is_active', true),
+      supabase.from('spare_parts_used').select('part_name, quantity, recorded_at')
+    ]);
+
+    const list = active || [];
+    const atRisk = list.filter(i => ['open', 'in_progress'].includes(i.status) && !i.sla_paused_at && !i.sla_breached).map(i => {
+      const total = new Date(i.sla_deadline) - new Date(i.date_logged);
+      const minsLeft = Math.round((new Date(i.sla_deadline) - now) / 60000);
+      return { ticket_number: i.ticket_number, priority: i.priority, status: i.status, description: i.description, minsLeft, usedPct: total > 0 ? Math.min(100, Math.round(((now - new Date(i.date_logged)) / total) * 100)) : 100 };
+    }).sort((a, b) => b.usedPct - a.usedPct).slice(0, 8);
+
+    const workload = (techs || []).map(t => {
+      const mine = list.filter(i => i.assigned_to === t.user_id);
+      return { userId: t.user_id, fullName: t.full_name, active: mine.length, paused: mine.filter(i => i.sla_paused_at).length, escalated: mine.filter(i => i.status === 'escalated').length };
+    }).sort((a, b) => b.active - a.active);
+
+    const today = now.toISOString().slice(0, 10);
+    const in7 = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+    const sc = sched || [];
+    const maintenance = { overdue: sc.filter(x => x.next_due < today).length, dueSoon: sc.filter(x => x.next_due >= today && x.next_due <= in7).length, total: sc.length };
+
+    const since = now.getTime() - 30 * 86400000;
+    const tally = {};
+    (parts || []).filter(p => new Date(p.recorded_at).getTime() >= since).forEach(p => { tally[p.part_name] = (tally[p.part_name] || 0) + (p.quantity || 1); });
+    const topParts = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, qty]) => ({ name, qty }));
+
+    res.json({
+      tickets: { active: list.length, breached: list.filter(i => i.sla_breached).length, paused: list.filter(i => i.sla_paused_at).length, unassigned: list.filter(i => i.status === 'open').length },
+      atRisk, workload, equipmentOut: assets || [], maintenance, topParts
+    });
+  } catch (err) {
+    console.error('Operations dashboard error:', err);
+    res.status(500).json({ error: 'Failed to load the operations dashboard.' });
+  }
+});
 
 // GET /api/dashboard/summary — KPI stats for dashboard
 router.get('/summary', async (req, res) => {

@@ -15,6 +15,8 @@ const userRoutes      = require('./routes/users');
 const reportRoutes    = require('./routes/reports');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
+const assetRoutes       = require('./routes/assets');
+const maintenanceRoutes = require('./routes/maintenance');
 const { runSlaCheck }    = require('./lib/sla');
 
 const app  = express();
@@ -83,6 +85,8 @@ app.use('/api/users',     userRoutes);
 app.use('/api/reports',   reportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/assets',       assetRoutes);
+app.use('/api/maintenance',  maintenanceRoutes);
 
 // ── 404 HANDLER ──
 app.use((req, res) => {
