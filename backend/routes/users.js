@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { logUserAudit } = require('../lib/userAudit');
 
-const ROLES = ['admin','officer','technician','caller'];
+const ROLES = ['admin','officer','technician'];   // roles that can be granted (the old 'caller' role has no pages and is not offered)
 const router = express.Router();
 router.use(authMiddleware);
 

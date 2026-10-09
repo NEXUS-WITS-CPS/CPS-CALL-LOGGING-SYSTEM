@@ -50,7 +50,7 @@
     <div class="form-group"><label>One person per line: <code>name, email, role</code></label>
       <textarea id="bulkText" rows="8" placeholder="Thabo Mokoena, t.mokoena@wits.ac.za, officer&#10;Sipho Nkosi, s.nkosi@wits.ac.za, technician"></textarea></div>
     <div class="form-group"><label>…or choose a CSV file</label><input type="file" id="bulkFile" accept=".csv,.txt" onchange="loadBulkFile(this)" /></div>
-    <small class="field-hint">Roles: officer, technician, admin, caller (default officer). Each person gets a temporary password and must choose their own at first sign-in.</small>
+    <small class="field-hint">Roles: officer, technician, admin (default officer). Each person gets a temporary password and must choose their own at first sign-in.</small>
     <p id="bulkError" style="color:red;font-size:13px;min-height:18px;"></p>
     <div id="bulkResult"></div>
     <section class="form-actions"><button type="button" class="btn-secondary" onclick="document.getElementById('bulkModal').close()">Close</button><button type="button" class="btn-primary" id="bulkGo" onclick="handleBulk()">Import</button></section>
@@ -72,7 +72,7 @@
       document.getElementById('pendingSection').style.display = pending.length ? '' : 'none';
       document.getElementById('pendingCount').textContent = `${pending.length} waiting`;
       document.getElementById('pendingBody').innerHTML = pending.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(formatDateTime(u.requested_at))}</td>
-        <td><select id="role_${u.user_id}"><option value="officer">Officer</option><option value="technician">Technician</option><option value="admin">Admin</option><option value="caller">Caller</option></select></td>
+        <td><select id="role_${u.user_id}"><option value="officer">Officer</option><option value="technician">Technician</option><option value="admin">Admin</option></select></td>
         <td><button class="btn-assign" onclick="reviewReq(${u.user_id},'approve')">Approve</button> <button class="btn-assign" onclick="reviewReq(${u.user_id},'reject')">Decline</button></td></tr>`).join('');
       document.getElementById('userCount').textContent = `${list.filter(u=>u.is_active).length} active · ${list.length} total`;
       document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(u.role)}</td>
