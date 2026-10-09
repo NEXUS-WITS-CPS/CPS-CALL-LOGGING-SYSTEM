@@ -84,8 +84,8 @@
       document.getElementById('userCount').textContent = `${list.filter(u=>u.is_active).length} active · ${list.length} total`;
       document.getElementById('userBody').innerHTML = list.map(u => `<tr><td><strong>${esc(u.full_name)}</strong></td><td>${esc(u.email)}</td><td>${esc(cap(u.role))}</td>
         <td><span class="badge ${u.is_active?'low':'cancelled'}">${u.is_active?'Active':(u.account_status==='rejected'?'Declined':'Deactivated')}</span>${u.must_change_password?' <small>(must change password)</small>':''}</td>
-        <td>${u.is_active ? (u.user_id===meU.userId ? '' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
-          <button class="btn-assign" onclick="openPw(${u.user_id},${q(u.full_name)})">Reset password</button></td></tr>`).join('');
+        <td><div class="user-actions">${u.is_active ? (u.user_id===meU.userId ? '' : `<button class="btn-assign" onclick="setActive(${u.user_id},false)">Deactivate</button>`) : `<button class="btn-assign" onclick="setActive(${u.user_id},true)">Reactivate</button>`}
+          <button class="btn-assign" onclick="openPw(${u.user_id},${q(u.full_name)})">Reset password</button></div></td></tr>`).join('');
     }
     window.pageRefresh = loadUsers;
     async function setActive(id, on) { try { const d = await apiFetch(`/users/${id}/${on?'activate':'deactivate'}`, { method:'PATCH', body:'{}' }); toast(d.message); loadUsers(); } catch(e) { alert(e.message); } }

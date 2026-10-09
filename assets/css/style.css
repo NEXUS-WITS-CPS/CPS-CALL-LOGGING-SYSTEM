@@ -1481,3 +1481,9 @@ body {
 /* Users page toolbar */
 .toolbar { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 24px; }
 .toolbar .btn-primary { width: 180px; padding: 11px 0; text-align: center; }
+
+/* Users page: action buttons share one grid so every row lines up; a lone button spans both columns */
+.user-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 300px; }
+.user-actions .btn-assign { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+.user-actions .btn-assign { width: 100%; text-align: center; }
+.user-actions .btn-assign:only-child { grid-column: 1 / -1; }
