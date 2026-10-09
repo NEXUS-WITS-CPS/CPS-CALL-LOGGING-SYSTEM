@@ -1406,3 +1406,10 @@ body {
 @media (min-width: 1600px) {
   .main-content { max-width: 1500px; }
 }
+
+/* Assign / Re-assign context panel */
+.assign-context { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin:0 0 14px; font-size:13px; }
+.assign-context p { margin:4px 0; }
+.assign-context .assign-warn { color:#92400e; background:#fef3c7; border-radius:6px; padding:6px 8px; }
+.assign-context ul { margin:6px 0 0 18px; padding:0; color:#475569; }
+.assign-context summary { cursor:pointer; color:#003b5c; font-weight:600; margin-top:6px; }

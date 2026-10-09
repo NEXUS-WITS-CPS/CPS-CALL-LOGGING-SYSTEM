@@ -300,6 +300,17 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
       return res.status(400).json({ error: 'Tickets can only be assigned to a technician or officer.' });
     }
 
+    // Re-assigning a ticket that is already with someone: must name a different person and give a reason
+    const isReassign = ['in_progress', 'escalated'].includes(incident.status) && !!incident.assigned_to;
+    if (isReassign) {
+      if (incident.assigned_to === assignee.user_id) {
+        return res.status(400).json({ error: `Ticket ${incident.ticket_number} is already assigned to ${assignee.full_name}. Choose a different person.` });
+      }
+      if (!assignmentNotes || assignmentNotes.trim().length < 5) {
+        return res.status(400).json({ error: 'A reason is required when re-assigning a ticket.' });
+      }
+    }
+
     const now = new Date().toISOString();
     const { data: updated, error } = await supabase
       .from('incidents')
@@ -309,9 +320,9 @@ router.patch('/:ticketNumber/assign', requireRole('admin'), async (req, res) => 
       .eq('ticket_number', incident.ticket_number).select().single();
     if (error) throw error;
 
-    const notes = assignmentNotes && assignmentNotes.trim() ? ` Notes: ${assignmentNotes.trim()}` : '';
+    const notes = assignmentNotes && assignmentNotes.trim() ? ` ${isReassign ? 'Reason' : 'Notes'}: ${assignmentNotes.trim()}` : '';
     await writeAudit(incident.incident_id, req.user.userId,
-      `Ticket Assigned — Assigned to ${assignee.full_name} by ${req.user.fullName}.${notes}`,
+      `Ticket Assigned — ${isReassign ? 'Re-assigned' : 'Assigned'} to ${assignee.full_name} by ${req.user.fullName}.${notes}`,
       `status: ${incident.status}`, 'status: in_progress');
     await notify(incident.incident_id, [assignee.user_id], 'ticket_assigned',
       `Ticket ${incident.ticket_number} (${updated.priority}) has been assigned to you by ${req.user.fullName}.${notes}`);

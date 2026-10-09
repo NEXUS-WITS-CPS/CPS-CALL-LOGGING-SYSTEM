@@ -66,7 +66,9 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  check('assigned technician escalates manually',r.s===200&&inc2.status==='escalated'&&inc2.priority==='critical');
  check('manual escalation does NOT falsely flag SLA breach',inc2.sla_breached===false);
  r=await call('PATCH',`/incidents/${t2}/escalate`,TE,{escalationReason:'safety',escalateTo:'facilities',escalationNotes:'Needs facilities urgently'}); check('cannot escalate twice (409)',r.s===409);
- r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:5}); check('escalated ticket can be re-assigned',r.s===200&&inc2.status==='in_progress'&&inc2.assigned_to===5);
+ r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:5}); check('re-assign without a reason rejected (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:3,assignmentNotes:'Same person again'}); check('re-assign to current assignee rejected (400)',r.s===400);
+ r=await call('PATCH',`/incidents/${t2}/assign`,A,{assignTo:5,assignmentNotes:'Original technician unavailable'}); check('escalated ticket can be re-assigned',r.s===200&&inc2.status==='in_progress'&&inc2.assigned_to===5);
  check('re-assignment increments reassign_count',inc2.reassign_count>=1,String(inc2.reassign_count));
  // automatic escalation
  r=await call('POST','/incidents',O,{...good,priority:'critical'}); const t3=r.j.ticketNumber; const inc3=T.incidents.find(i=>i.ticket_number===t3);

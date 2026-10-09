@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Wits CPS | Assign Incident</title>
+  <title>Wits CPS | Assign / Re-assign Incident</title>
   <link rel="stylesheet" href="../assets/css/style.css" />
 </head>
 <body class="dashboard-page">
@@ -34,7 +34,7 @@
             <a href="log-incident.html">📋 Log Incident</a>
           </li>
           <li class="active">
-            <a href="assign-incident.html">👤 Assign Incident</a>
+            <a href="assign-incident.html">👤 Assign / Re-assign</a>
           </li>
           <li>
             <a href="resolve-incident.html">✅ Resolve Incident</a>
@@ -51,8 +51,8 @@
 
       <!-- Page Header -->
       <header class="page-header">
-        <h1>Assign Incident</h1>
-        <p>Review open tickets and assign them to available officers</p>
+        <h1>Assign / Re-assign Incident</h1>
+        <p>Assign new tickets, or move a ticket that is already with a technician to someone else</p>
       </header>
 
       <!-- Success Message -->
@@ -61,7 +61,7 @@
       <!-- Unassigned Tickets Table -->
       <section class="table-section">
         <header class="table-header">
-          <h2>Unassigned Tickets</h2>
+          <h2>Tickets Needing Assignment</h2>
           <span class="badge-count">Loading…</span>
         </header>
 
@@ -71,14 +71,16 @@
               <th>Ticket No.</th>
               <th>Description</th>
               <th>Location</th>
-              <th>Category</th>
               <th>Priority</th>
+              <th>Status</th>
+              <th>Assigned To</th>
+              <th>Assigned Since</th>
               <th>Date Logged</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">Loading tickets...</td></tr>
+            <tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">Loading tickets...</td></tr>
           </tbody>
         </table>
       </section>
@@ -101,6 +103,7 @@
         <p><strong>Description:</strong> <span id="modalDescription"></span></p>
         <p><strong>Priority:</strong> <span id="modalPriority"></span></p>
       </section>
+      <section id="assignContext" class="assign-context" style="display:none;"></section>
 
       <form id="assignForm" onsubmit="handleAssignIncident(event)">
 
@@ -130,7 +133,7 @@
 
         <!-- Assignment Notes -->
         <div class="form-group">
-          <label for="assignmentNotes">Assignment Notes</label>
+          <label for="assignmentNotes"><span id="assignNotesLabel">Assignment Notes</span></label>
           <textarea
             id="assignmentNotes"
             name="assignmentNotes"

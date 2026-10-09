@@ -109,7 +109,7 @@ const roleAccess = {
 const roleSidebar = {
   admin: `<ul>
     <li><a href="dashboard.html">🏠 Dashboard</a></li>
-    <li><a href="assign-incident.html">👤 Assign Incident</a></li>
+    <li><a href="assign-incident.html">👤 Assign / Re-assign</a></li>
     <li><a href="escalate-incident.html">🚨 Escalate Incident</a></li>
     <li><a href="track-incident.html">🔍 Track Incident</a></li>
     <li><a href="reports.html">📊 Reports</a></li>
@@ -269,6 +269,7 @@ async function handleLogin(event) {
 }
 
 function formatDate(d) { if (!d) return '—'; return toDate(d).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }); }
+function formatDateTime(d) { if (!d) return '—'; return toDate(d).toLocaleString('en-ZA', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
 function formatStatus(s) { const m = { open:'Open', in_progress:'In Progress', resolved:'Resolved', pending_confirmation:'Pending Confirmation', closed:'Closed', escalated:'Escalated', cancelled:'Cancelled' }; return m[s] || s; }
 function getSLAStatus(i) {
   if (i.sla_breached) return 'breached';
@@ -490,20 +491,34 @@ function resetForm() {
 // ── UC4 ASSIGN ──
 async function loadUnassignedTickets() {
   try {
-    const data = await apiFetch('/incidents?status=open');
-    const inc  = data.incidents || [];
-    const badge = document.querySelector('.badge-count'); if(badge) badge.textContent=`${inc.length} pending`;
+    // Everything the admin can act on: new tickets (assign) plus tickets already with someone (re-assign)
+    const data = await apiFetch('/incidents');
+    const order = { escalated:0, open:1, in_progress:2 };
+    const inc  = (data.incidents || []).filter(i => i.status in order)
+      .sort((x,y) => order[x.status]-order[y.status] || new Date(x.date_logged)-new Date(y.date_logged));
+    const nOpen = inc.filter(i=>i.status==='open').length;
+    const badge = document.querySelector('.badge-count'); if(badge) badge.textContent=`${nOpen} awaiting assignment · ${inc.length-nOpen} with a technician`;
     const tbody = document.querySelector('.tickets-table tbody'); if(!tbody) return;
-    if (!inc.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:#999;">No unassigned tickets.</td></tr>'; return; }
-    tbody.innerHTML = inc.map(i=>`<tr>
+    if (!inc.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">No tickets need assigning.</td></tr>'; return; }
+    tbody.innerHTML = inc.map(i=>{
+      const withSomeone = i.status !== 'open' && i.assigned_user;
+      const since = i.date_assigned ? `${formatDate(i.date_assigned)} (${formatElapsed(Math.max(1,Math.round((Date.now()-toDate(i.date_assigned).getTime())/60000)))} ago)` : '—';
+      const who = withSomeone ? esc(i.assigned_user.full_name) : '<span style="color:#999;">Unassigned</span>';
+      const rb = i.reassign_count>0 ? ` <span class="badge-reassigned" title="Assigned ${i.reassign_count+1} times">Re-assigned${i.reassign_count>1?' ×'+i.reassign_count:''}</span>` : '';
+      const btn = withSomeone
+        ? `<button class="btn-assign" style="background:#fee2e2;color:#991b1b;" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Re-assign</button>`
+        : `<button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button>`;
+      return `<tr>
       <td>${esc(i.ticket_number)}</td>
       <td>${esc(i.description.substring(0,45))}${i.description.length>45?'...':''}</td>
       <td>${esc(i.locations?.location_name||'—')}</td>
-      <td>${esc(i.categories?.category_name||'—')}</td>
       <td><span class="badge ${i.priority}">${i.priority.charAt(0).toUpperCase()+i.priority.slice(1)}</span></td>
+      <td><span class="badge ${i.status.replace('_','')}">${formatStatus(i.status)}</span></td>
+      <td>${who}${rb}</td>
+      <td>${since}</td>
       <td>${formatDate(i.date_logged)}</td>
-      <td><button class="btn-assign" onclick="openAssignModal(${q(i.ticket_number)},${q(i.description)},${q(i.priority)})">Assign</button></td>
-    </tr>`).join('');
+      <td>${btn}</td>
+    </tr>`; }).join('');
     await loadTechDropdown();
   } catch(e) { console.error('Unassigned tickets:', e); }
 }
@@ -518,6 +533,8 @@ async function loadTechDropdown() {
 }
 
 let currentTicket = '';
+let currentTicketAssignee = null;
+let isReassignMode = false;
 function openAssignModal(tn, desc, pri) {
   currentTicket = tn;
   
@@ -537,6 +554,7 @@ function openAssignModal(tn, desc, pri) {
           <p><strong>Description:</strong> <span id="modalDescription"></span></p>
           <p><strong>Priority:</strong> <span id="modalPriority"></span></p>
         </section>
+        <section id="assignContext" class="assign-context" style="display:none;"></section>
         <form id="assignForm" onsubmit="handleAssignIncident(event)">
           <div class="form-group">
             <label for="assignTo">Assign To <span class="required">*</span></label>
@@ -552,7 +570,7 @@ function openAssignModal(tn, desc, pri) {
             </select>
           </div>
           <div class="form-group">
-            <label for="assignmentNotes">Assignment Notes</label>
+            <label for="assignmentNotes"><span id="assignNotesLabel">Assignment Notes</span></label>
             <textarea id="assignmentNotes" rows="3" placeholder="Any notes for the technician..."></textarea>
           </div>
           <p id="assignErrorMessage" style="color:red;font-size:13px;min-height:18px;"></p>
@@ -571,7 +589,35 @@ function openAssignModal(tn, desc, pri) {
   const p = document.getElementById('updatePriority');
   if (p) p.value = pri.toLowerCase();
   loadTechDropdown();
+  loadAssignContext(tn);
   document.getElementById('assignModal').showModal();
+}
+
+// Shows where the ticket currently stands so the admin knows what they are changing
+async function loadAssignContext(tn) {
+  const box = document.getElementById('assignContext'); if (!box) return;
+  currentTicketAssignee = null; isReassignMode = false;
+  box.style.display = 'none'; box.innerHTML = '';
+  setAssignMode(false);
+  try {
+    const d = await apiFetch(`/incidents/${encodeURIComponent(tn)}`);
+    const inc = d.incident || {};
+    const hist = (d.auditTrail || []).filter(a => /^Ticket Assigned/.test(a.action_description));
+    const withSomeone = ['in_progress','escalated'].includes(inc.status) && inc.assigned_user;
+    if (withSomeone) { currentTicketAssignee = inc.assigned_user.user_id; isReassignMode = true; setAssignMode(true); }
+    const rows = hist.map(a => `<li>${esc(formatDateTime(a.action_time))} — ${esc(a.action_description.replace(/^Ticket Assigned — /,''))}</li>`).join('');
+    box.innerHTML = `
+      <p><strong>Current status:</strong> <span class="badge ${esc(inc.status.replace('_',''))}">${esc(formatStatus(inc.status))}</span></p>
+      <p><strong>Currently assigned to:</strong> ${withSomeone ? esc(inc.assigned_user.full_name) : 'Nobody yet'}${inc.date_assigned&&withSomeone?` <small>(since ${esc(formatDateTime(inc.date_assigned))})</small>`:''}</p>
+      ${withSomeone ? '<p class="assign-warn">Re-assigning moves this ticket to a different person. The time spent counter restarts and the change is recorded in the audit trail.</p>' : ''}
+      ${rows ? `<details><summary>Assignment history (${hist.length})</summary><ul>${rows}</ul></details>` : ''}`;
+    box.style.display = 'block';
+  } catch(e) { console.error('Assign context:', e); }
+}
+function setAssignMode(re) {
+  const t = document.querySelector('#assignModal .modal-header h2'); if (t) t.textContent = re ? 'Re-assign Ticket' : 'Assign Ticket';
+  const l = document.getElementById('assignNotesLabel'); if (l) l.innerHTML = re ? 'Reason for re-assigning <span class="required">*</span>' : 'Assignment Notes';
+  const b = document.querySelector('#assignForm button[type="submit"]'); if (b) b.textContent = re ? 'Confirm Re-assignment' : 'Confirm Assignment';
 }
 function closeAssignModal() { document.getElementById('assignModal').close(); document.getElementById('assignForm')?.reset(); document.getElementById('assignErrorMessage').textContent=''; }
 async function handleAssignIncident(event) {
@@ -584,6 +630,8 @@ async function handleAssignIncident(event) {
   const btn=event.target.querySelector('button[type="submit"]');
   errEl.textContent='';
   if (!assignTo) { errEl.textContent='Please select an officer.'; return; }
+  if (isReassignMode && parseInt(assignTo) === currentTicketAssignee) { errEl.textContent='That person already has this ticket. Choose someone else.'; return; }
+  if (isReassignMode && (!notes || notes.length < 5)) { errEl.textContent='Please give a reason for re-assigning this ticket.'; return; }
   btn.textContent='Assigning...'; btn.disabled=true;
   try {
     const data=await apiFetch(`/incidents/${currentTicket}/assign`, { method:'PATCH', body:JSON.stringify({ assignTo, priority, assignmentNotes:notes }) });
@@ -591,7 +639,7 @@ async function handleAssignIncident(event) {
     successEl.textContent=data.message; successEl.style.display='block';
     refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
   } catch(err) { errEl.textContent=err.message||'Failed to assign ticket.'; }
-  finally { btn.textContent='Confirm Assignment'; btn.disabled=false; }
+  finally { btn.textContent=isReassignMode?'Confirm Re-assignment':'Confirm Assignment'; btn.disabled=false; }
 }
 
 // ── UC5 RESOLVE ──
