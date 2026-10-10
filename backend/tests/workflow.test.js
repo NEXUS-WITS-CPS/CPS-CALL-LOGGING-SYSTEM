@@ -294,5 +294,12 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('GET','/users/audit',O); check('officer cannot read the account history (403)',r.s===403);
  r=await call('GET','/users/technicians',A); check('pending/declined people never appear in the assign list',!(r.j.technicians||[]).some(t=>t.email==='rita@wits.ac.za'));
 
+ // login rate limit: only failed sign-ins count; the limit is 20 per 15 minutes
+ let refusedAt=0, remainingHeader=null;
+ for(let i=1;i<=25;i++){ const rr=await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'nobody@wits.ac.za',password:'wrong-password'})}); if(i===1)remainingHeader=rr.headers.get('ratelimit-remaining'); if(rr.status===429&&!refusedAt)refusedAt=i; }
+ check('login attempts are limited: refused after 20 failed tries (429)',refusedAt>0&&refusedAt<=21,'refused at '+refusedAt);
+ check('rate-limit header tells the user how many tries are left',remainingHeader!==null,String(remainingHeader));
+ r=await call('POST','/auth/login',null,{email:'bulk1@wits.ac.za',password:'brandnew-pw1'}); check('locked-out sign-in gets a clear message',r.s===429&&/Too many login attempts/.test(r.j.error||''),JSON.stringify(r));
+
  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 })();

@@ -60,6 +60,9 @@ app.use('/api/', limiter);
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  skipSuccessfulRequests: true, // only failed sign-ins count towards the limit
+  standardHeaders: true,        // RateLimit-Remaining shows how many tries are left
+  legacyHeaders: false,
   message: { error: 'Too many login attempts — please try again in 15 minutes.' }
 });
 app.use('/api/auth/login', loginLimiter);
