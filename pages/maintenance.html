@@ -52,7 +52,7 @@
   <script>
 
     const me = getUser(); const isAdmin = me && me.role === 'admin'; let doneId = null;
-    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
+    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     async function loadSchedules() {
       const d = await apiFetch('/maintenance'); const list = d.schedules || [];
       document.getElementById('schedCount').textContent = `${list.filter(s=>s.state==='overdue'&&s.is_active).length} overdue · ${list.length} total`;

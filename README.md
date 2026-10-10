@@ -40,7 +40,7 @@ There are no shared demo accounts. The administrator signs in with their own acc
 
 ## Running the tests
 From the `backend` folder (`npm install` first):
-- `npm test` runs the workflow tests (182 checks covering the use cases, SLA rules, equipment and maintenance, user management and security) against an in-memory database (no credentials needed).
+- `npm test` runs the workflow tests (185 checks covering the use cases, SLA rules, equipment and maintenance, user management and security) against an in-memory database (no credentials needed).
 - Live API suite (61 checks against the deployed API): create an active admin, officer and technician account on the Users page, set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to their passwords (the three e-mail addresses are set in the `CREDS` table at the top of the script; edit them to match your accounts), then run `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards.
 
 ## Pages
@@ -68,4 +68,4 @@ From the `backend` folder (`npm install` first):
 - HTML5, CSS3, JavaScript (GitHub Pages)
 - Node.js 22 + Express REST API (Render)
 - Supabase (PostgreSQL)
-- Security: JWT (8 h), bcrypt, role-based access control, helmet, CORS allow-list, rate limiting, input validation, 30-minute idle timeout
+- Security: JWT (8 h), bcrypt, role-based access control, helmet, CORS allow-list, rate limiting (5 failed sign-ins per account in 15 minutes), input validation, 30-minute idle timeout

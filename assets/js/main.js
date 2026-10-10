@@ -401,7 +401,7 @@ async function handleAddPart(event) {
   try {
     const d=await apiFetch(`/incidents/${partsTicket}/parts`, { method:'POST', body:JSON.stringify({ partName, partNumber, quantity, notes }) });
     closePartsModal();
-    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     refreshPage();
   } catch(err) { errEl.textContent=err.message||'Failed to record part.'; }
   finally { btn.disabled=false; btn.textContent='Record Part'; }
@@ -415,7 +415,7 @@ function progressButton(i) {
 async function recordProgress(tn, step) {
   try {
     const d=await apiFetch(`/incidents/${tn}/progress`, { method:'PATCH', body:JSON.stringify({ step }) });
-    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     refreshPage();
   } catch(err) { alert(err.message||'Failed to record progress.'); }
 }
@@ -469,7 +469,7 @@ async function handlePauseSla(event) {
   try {
     const d=await apiFetch(`/incidents/${pauseTicket}/sla-pause`, { method:'PATCH', body:JSON.stringify({ reason, notes }) });
     closePauseModal();
-    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     refreshPage();
   } catch(err) { errEl.textContent=err.message||'Failed to pause SLA.'; }
   finally { btn.disabled=false; btn.textContent='Pause SLA'; }
@@ -477,7 +477,7 @@ async function handlePauseSla(event) {
 async function resumeSla(tn) {
   try {
     const d=await apiFetch(`/incidents/${tn}/sla-resume`, { method:'PATCH', body:'{}' });
-    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3000); }
+    const ok=getSuccessEl(); if(ok){ ok.textContent=d.message; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     refreshPage();
   } catch(err) { alert(err.message||'Failed to resume SLA.'); }
 }
@@ -486,12 +486,12 @@ async function resumeSla(tn) {
 function slaCountdown(i) {
   if (!['open','in_progress'].includes(i.status) || !i.sla_deadline) return '';
   if (i.sla_paused_at) return '<small class="sla-left paused">⏸ clock stopped</small>';
-  const total = new Date(i.sla_deadline) - toDate(i.date_logged);
+  const total = toDate(i.sla_deadline) - toDate(i.date_logged);
   return `<small class="sla-left" data-deadline="${esc(i.sla_deadline)}" data-total="${total > 0 ? total : 0}"></small>`;
 }
 function tickSlaCountdowns() {
   document.querySelectorAll('.sla-left[data-deadline]').forEach(el => {
-    const left = Math.round((new Date(el.dataset.deadline) - Date.now()) / 60000);
+    const left = Math.round((toDate(el.dataset.deadline) - Date.now()) / 60000);
     const total = parseInt(el.dataset.total) || 0;
     const used = total ? ((total - left * 60000) / total) * 100 : 100;
     el.textContent = left <= 0 ? `Overdue by ${formatElapsed(-left || 1)}` : `${formatElapsed(left)} left`;
@@ -632,7 +632,7 @@ async function handleLogIncident(event) {
     form.reset();
     form.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
     window.onload();
-    setTimeout(()=>{ successEl.style.display='none'; }, 5000);
+    setTimeout(()=>{ successEl.style.display='none'; }, 8000);
   } catch(err) { errEl.textContent=err.message||'Failed to log incident. Please try again.'; }
   finally { btn.textContent='Submit Incident'; btn.disabled=false; }
 }
@@ -653,7 +653,7 @@ async function loadUnassignedTickets() {
     const data = await apiFetch('/incidents');
     const order = { escalated:0, open:1, in_progress:2 };
     const inc  = (data.incidents || []).filter(i => i.status in order)
-      .sort((x,y) => order[x.status]-order[y.status] || new Date(x.date_logged)-new Date(y.date_logged));
+      .sort((x,y) => order[x.status]-order[y.status] || toDate(x.date_logged)-toDate(y.date_logged));
     const nOpen = inc.filter(i=>i.status==='open').length;
     const badge = document.querySelector('.badge-count'); if(badge) badge.textContent=`${nOpen} awaiting assignment · ${inc.length-nOpen} with a technician`;
     const tbody = document.querySelector('.tickets-table tbody'); if(!tbody) return;
@@ -795,7 +795,7 @@ async function handleAssignIncident(event) {
     const data=await apiFetch(`/incidents/${currentTicket}/assign`, { method:'PATCH', body:JSON.stringify({ assignTo, priority, assignmentNotes:notes }) });
     closeAssignModal();
     successEl.textContent=data.message; successEl.style.display='block';
-    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 8000);
   } catch(err) { errEl.textContent=err.message||'Failed to assign ticket.'; }
   finally { btn.textContent=isReassignMode?'Confirm Re-assignment':'Confirm Assignment'; btn.disabled=false; }
 }
@@ -881,7 +881,7 @@ function openResolveModal(tn, desc, pri, asgn, dateAssigned) {
 
   // Time spent is computed automatically from assignment time — display only, live-updating.
   if (resolveTimeSpentInterval) clearInterval(resolveTimeSpentInterval);
-  const assignedMs = dateAssigned ? new Date(dateAssigned).getTime() : null;
+  const assignedMs = dateAssigned ? toDate(dateAssigned).getTime() : null;
   const updateTimeSpent = () => {
     const el = document.getElementById('timeSpentDisplay');
     if (!el) return;
@@ -934,7 +934,7 @@ async function handleResolveIncident(event) {
     closeResolveModal();
     successEl.textContent=`Ticket ${currentResolveTicket} resolved successfully! Awaiting confirmation.`;
     successEl.style.display='block';
-    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 8000);
   } catch(err) { errEl.textContent=err.message||'Failed to resolve ticket.'; }
   finally { btn.textContent='Submit Resolution'; btn.disabled=false; }
 }
@@ -1050,7 +1050,7 @@ async function submitReject() {
       successEl.textContent = `🔄 Ticket ${currentConfirmTicket} rejected and reopened. The ticket is back in the open queue.`;
       successEl.style.display = 'block';
       refreshPage();
-      setTimeout(() => { successEl.style.display = 'none'; }, 4000);
+      setTimeout(() => { successEl.style.display = 'none'; }, 8000);
     }
   } catch(err) {
     errEl.textContent = err.message || 'Failed to reject. Please try again.';
@@ -1088,7 +1088,7 @@ async function submitConfirm(action) {
       successEl.textContent = `✅ Ticket ${currentConfirmTicket} confirmed and closed successfully!`;
       successEl.style.display = 'block';
       refreshPage();
-      setTimeout(() => { successEl.style.display = 'none'; }, 4000);
+      setTimeout(() => { successEl.style.display = 'none'; }, 8000);
     }
   } catch(err) {
     errEl.textContent = err.message || 'Failed to confirm. Please try again.';
@@ -1167,7 +1167,7 @@ async function handleEscalateIncident(event) {
     closeEscalateModal();
     successEl.textContent=`Ticket ${currentEscalateTicket} escalated successfully!`;
     successEl.style.display='block';
-    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 3000);
+    refreshPage(); setTimeout(()=>{ successEl.style.display='none'; }, 8000);
   } catch(err) { errEl.textContent=err.message||'Failed to escalate ticket.'; }
   finally { btn.textContent='🚨 Confirm Escalation'; btn.disabled=false; }
 }

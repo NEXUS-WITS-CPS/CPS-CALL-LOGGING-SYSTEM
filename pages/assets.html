@@ -61,7 +61,7 @@
     const STATUS_LABEL = { in_service:'In service', removed:'Removed', in_repair:'In repair', decommissioned:'Decommissioned' };
     const CRIT_CLASS = { critical:'critical', high:'high', medium:'medium', low:'low' };
     let currentAsset = null;
-    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
+    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     async function loadAssets() {
       try {
         const q = document.getElementById('assetSearch').value.trim(), st = document.getElementById('assetStatus').value;

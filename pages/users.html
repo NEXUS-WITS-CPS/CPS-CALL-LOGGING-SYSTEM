@@ -66,7 +66,7 @@
   <script>
     const cap = v => String(v||'').charAt(0).toUpperCase() + String(v||'').slice(1);
     const meU = getUser(); let pwId = null;
-    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },3500); }
+    function toast(msg){ const ok=getSuccessEl(); ok.textContent=msg; ok.style.display='block'; setTimeout(()=>{ ok.style.display='none'; },8000); }
     async function loadUsers() {
       const d = await apiFetch('/users'); const all = d.users || [];
       const pending = all.filter(u => u.account_status === 'pending');

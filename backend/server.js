@@ -56,16 +56,38 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter limit on login attempts (brute-force protection)
-const loginLimiter = rateLimit({
+// Stricter limits on login attempts (brute-force protection). Only FAILED sign-ins count.
+// 1) per account: 5 wrong passwords for the same email locks that account's sign-in for 15 minutes
+//    (even the correct password is refused until the window ends); a successful sign-in resets the count.
+// 2) per connection: 20 failed sign-ins from one address in 15 minutes, whichever accounts were tried.
+// The counters are kept in memory, so they also clear if the free-tier server restarts.
+const acctKey = req => String((req.body && req.body.email) || '').trim().toLowerCase() || 'no-email';
+const clientIp = req => String(req.headers['cf-connecting-ip'] || req.ip || '');
+const loginByAccount = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: acctKey,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many failed sign-in attempts for this account — please try again in 15 minutes.' }
+});
+const loginByConnection = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  skipSuccessfulRequests: true, // only failed sign-ins count towards the limit
-  standardHeaders: true,        // RateLimit-Remaining shows how many tries are left
+  keyGenerator: clientIp,
+  skipSuccessfulRequests: true,
+  standardHeaders: false,
   legacyHeaders: false,
-  message: { error: 'Too many login attempts — please try again in 15 minutes.' }
+  validate: false,
+  message: { error: 'Too many failed sign-in attempts from this connection — please try again in 15 minutes.' }
 });
-app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/login', (req, res, next) => {
+  res.on('finish', () => { if (res.statusCode === 200) loginByAccount.resetKey(acctKey(req)); });
+  next();
+});
+app.use('/api/auth/login', loginByAccount);
+app.use('/api/auth/login', loginByConnection);
 // Access requests are public, so keep them to a few per visitor per hour
 app.use('/api/auth/request-access', rateLimit({
   windowMs: 60 * 60 * 1000, max: 5,

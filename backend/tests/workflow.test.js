@@ -294,12 +294,20 @@ const good={callerName:'Test Caller',callerContact:'011 717 1000',categoryId:'1'
  r=await call('GET','/users/audit',O); check('officer cannot read the account history (403)',r.s===403);
  r=await call('GET','/users/technicians',A); check('pending/declined people never appear in the assign list',!(r.j.technicians||[]).some(t=>t.email==='rita@wits.ac.za'));
 
- // login rate limit: only failed sign-ins count; the limit is 20 per 15 minutes
+ // login lockout: 5 failed sign-ins per account in 15 minutes; only failed sign-ins count; success resets the count
+ const login=(email,password)=>fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
  let refusedAt=0, remainingHeader=null;
- for(let i=1;i<=25;i++){ const rr=await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'nobody@wits.ac.za',password:'wrong-password'})}); if(i===1)remainingHeader=rr.headers.get('ratelimit-remaining'); if(rr.status===429&&!refusedAt)refusedAt=i; }
- check('login attempts are limited: refused after 20 failed tries (429)',refusedAt>0&&refusedAt<=21,'refused at '+refusedAt);
- check('rate-limit header tells the user how many tries are left',remainingHeader!==null,String(remainingHeader));
- r=await call('POST','/auth/login',null,{email:'bulk1@wits.ac.za',password:'brandnew-pw1'}); check('locked-out sign-in gets a clear message',r.s===429&&/Too many login attempts/.test(r.j.error||''),JSON.stringify(r));
+ for(let i=1;i<=8;i++){ const rr=await login('nobody@wits.ac.za','wrong-password'); if(i===1)remainingHeader=rr.headers.get('ratelimit-remaining'); if(rr.status===429&&!refusedAt)refusedAt=i; }
+ check('login is locked after 5 failed tries for the same account (6th is refused, 429)',refusedAt===6,'refused at '+refusedAt);
+ check('rate-limit header tells the user how many tries are left',remainingHeader==='4',String(remainingHeader));
+ for(let i=1;i<=5;i++) await login('bulk1@wits.ac.za','wrong-password');
+ let lk=await login('bulk1@wits.ac.za','Reset-temp-1'); let lj={}; try{lj=await lk.json()}catch(e){}
+ check('a locked account is refused even with the correct password, with a clear message',lk.status===429&&/try again in 15 minutes/.test(lj.error||''),lk.status+' '+JSON.stringify(lj));
+ lk=await login('sam@wits.ac.za','longenough1'); check('other accounts can still sign in while one is locked',lk.status===200,String(lk.status));
+ for(let i=1;i<=3;i++) await login('sam@wits.ac.za','wrong-password');
+ lk=await login('sam@wits.ac.za','longenough1'); check('a correct sign-in is accepted before the limit is reached',lk.status===200,String(lk.status));
+ let last=0; for(let i=1;i<=3;i++){ const rr=await login('sam@wits.ac.za','wrong-password'); last=rr.status; }
+ check('a successful sign-in resets the failed-attempt count',last===401,String(last));
 
  console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
 })();
