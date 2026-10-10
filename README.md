@@ -5,18 +5,25 @@ A custom-built, web-based call logging system developed for
 Wits Campus Protection Services (CPS) to replace the 
 third-party Fidelity Pulse platform.
 
-## Status: Iteration 4 (Construction 1)
-All six core use cases are implemented end to end: UC1 Log, UC2 Track, UC3 Confirm/Close, UC4 Assign, UC5 Resolve, UC6 Escalate (manual and automatic on SLA breach), plus a Cancel Incident (soft-delete) feature, five reports (Resolution Time, Call Volume, Priority Analysis, Incident History, Technician Performance) with a reporting period, drill-down and CSV/Excel/PDF export, and a fully responsive UI (mobile, tablet, laptop and large-display breakpoints).
+## Status: Iteration 5 (Construction 2)
+All six core use cases are implemented end to end: UC1 Log, UC2 Track, UC3 Confirm/Close, UC4 Assign, UC5 Resolve, UC6 Escalate (manual, and automatic when the SLA deadline is breached), plus Cancel Incident (soft-delete). Construction 2 added:
+
+- SLA tiers (2/4/8/24 hours, from priority, equipment criticality and category), pause and resume with a reason, and warnings at 75% and 90%
+- Work progress steps (accepted, arrived, repair started), spare parts and automatic time spent; re-assignment with a reason
+- Equipment register, equipment movements (remove, repair, return, replace) and preventive maintenance schedules that raise tickets when due
+- User management: access requests, bulk import (up to 200), password reset, activate/deactivate, account history, forced change of a temporary password
+- Six reports (Resolution Time, Call Volume, Priority Analysis, Incident History, Technician Performance, SLA Compliance) with a reporting period, drill-down and CSV/Excel/PDF export
+- Role dashboards, an Operations dashboard and a phone-friendly technician view (My Jobs)
 
 - Front end: https://nexus-wits-cps.github.io/CPS-CALL-LOGGING-SYSTEM/ (GitHub Pages)
 - API: https://wits-cps-api.onrender.com (Render free tier; the first request after inactivity can take about a minute)
-- Database: Supabase PostgreSQL, Row Level Security enabled
+- Database: Supabase PostgreSQL (15 tables), Row Level Security enabled
 
 Ticket statuses: Open, In Progress, Escalated, Pending Confirmation, Closed, Cancelled. Notifications are in-app only.
 
-Cancel Incident: an admin can cancel any ticket that isn't already closed/cancelled; an officer can only cancel a ticket they logged themselves, and only while it is still open (before a technician has been assigned). Cancelling never deletes the row — it sets status = `cancelled` so the ticket number and audit trail stay intact for accountability. Available from the Track Incident detail view.
+Cancel Incident: an admin can cancel any ticket that isn't already closed/cancelled; an officer can only cancel a ticket they logged themselves, and only while it is still open. Cancelling never deletes the row; it sets status = `cancelled` so the ticket number and audit trail stay intact.
 
-Deferred to Construction 2: email/SMS notifications, update details/attachments, user-management and system-table screens, profile/password change, client-hosted deployment.
+Not built: email/SMS notifications, file attachments, editing incident details after logging, a screen to manage categories and locations, profile editing and self-service password reset, automatic technician assignment, client-hosted deployment and Fidelity Pulse data migration.
 
 ## Accounts
 There are no shared demo accounts. The administrator signs in with their own account, adds people on the Users page (one at a time or by bulk import) or approves access requests from the login page. Everyone must choose their own password at first sign-in.
@@ -33,8 +40,8 @@ There are no shared demo accounts. The administrator signs in with their own acc
 
 ## Running the tests
 From the `backend` folder (`npm install` first):
-- `npm test` runs the workflow tests (67 checks, including Cancel Incident, `/auth/me`, register/deactivate, dashboard/recent and the technician drill-down report) against an in-memory database (no credentials needed).
-- Live API suite (61 checks against the deployed API): set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to the demo passwords, then `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards. Register/deactivate are not exercised here since they would create permanent accounts in the live database.
+- `npm test` runs the workflow tests (179 checks covering the use cases, SLA rules, equipment and maintenance, user management and security) against an in-memory database (no credentials needed).
+- Live API suite (61 checks against the deployed API): create an active admin, officer and technician account on the Users page, set `PW_ADMIN`, `PW_OFFICER` and `PW_TECH` to their passwords (and the matching usernames if the script asks for them), then run `node tests/live-api.test.js`. It creates a handful of clearly-labelled TEST tickets each run; delete them afterwards.
 
 ## Pages
 - Login
@@ -46,7 +53,8 @@ From the `backend` folder (`npm install` first):
 - Resolve Incident (UC5)
 - Escalate Incident (UC6)
 - Track Incident (UC2); Confirm / Reject (UC3) is offered to the officer who logged a ticket once it is Pending Confirmation
-- Reports & Analytics
+- Reports & Analytics (six reports)
+- Operations dashboard, Equipment (assets), Maintenance, Users, My Jobs (technician), Change password
 
 ## Team Members
 - Ashley Mathebe
