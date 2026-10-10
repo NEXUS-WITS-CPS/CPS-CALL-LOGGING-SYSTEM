@@ -220,6 +220,14 @@
         document.getElementById('resolvedCount').textContent     = (s.resolved||0) + (s.closed||0);
         document.getElementById('outstandingCount').textContent  = (s.open||0) + (s.inProgress||0) + (s.escalated||0);
 
+        try {
+          const sla = await apiFetch('/reports/sla-performance');
+          if (sla && sla.overall && sla.overall.total) {
+            document.getElementById('slaSuccessPct').textContent = sla.overall.successPct + '%';
+            document.getElementById('slaBreachPct').textContent  = sla.overall.breachPct + '%';
+          }
+        } catch (e) { console.error('SLA card:', e); }
+
         if (allPerformance.length > 0) {
           const top = allPerformance.sort((a,b) => b.totalResolved - a.totalResolved)[0];
           document.getElementById('topPerformer').textContent = top.fullName.split(' ')[0] || '—';
